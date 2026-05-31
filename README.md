@@ -1,5 +1,7 @@
 # 题库系统 - 后端
 
+> 🔗 **前端仓库**：[ice-a/tiku_v3_20260531_front](https://github.com/ice-a/tiku_v3_20260531_front)
+
 基于 Express.js + MongoDB 的 REST API 服务。
 
 ## Mock 数据
