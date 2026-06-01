@@ -33,3 +33,4 @@ coverage/
 
 *.py
 *.pyc
+*.json
