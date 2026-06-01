@@ -201,6 +201,13 @@ export async function getPendingContent(type) {
     pending = pending.concat(questions.map(q => ({ ...q.toObject(), _type: 'question' })));
   }
 
+  if (!type || type === 'navigation') {
+    const navigations = await Navigation.find({ status: 'pending' })
+      .populate('uploadedBy', 'username')
+      .sort({ createdAt: -1 });
+    pending = pending.concat(navigations.map(n => ({ ...n.toObject(), _type: 'navigation' })));
+  }
+
   if (!type || type === 'feedback') {
     const feedbacks = await Feedback.find({ status: 'pending' })
       .populate('userId', 'username')
@@ -223,6 +230,18 @@ export async function approveContent(type, id) {
     question.status = 'approved';
     await question.save();
     return { message: 'Question approved' };
+  }
+
+  if (type === 'navigation') {
+    const navigation = await Navigation.findById(id);
+    if (!navigation) {
+      const error = new Error('Navigation not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    navigation.status = 'approved';
+    await navigation.save();
+    return { message: 'Navigation approved' };
   }
 
   if (type === 'feedback') {
@@ -254,6 +273,18 @@ export async function rejectContent(type, id) {
     question.status = 'rejected';
     await question.save();
     return { message: 'Question rejected' };
+  }
+
+  if (type === 'navigation') {
+    const navigation = await Navigation.findById(id);
+    if (!navigation) {
+      const error = new Error('Navigation not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    navigation.status = 'rejected';
+    await navigation.save();
+    return { message: 'Navigation rejected' };
   }
 
   if (type === 'feedback') {

@@ -5,6 +5,7 @@ const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * 获取导航列表（分页、搜索、筛选）
+ * 默认只显示 approved 状态
  */
 export async function getList(query = {}) {
   const {
@@ -12,16 +13,31 @@ export async function getList(query = {}) {
     limit = 20,
     keyword = '',
     category = '',
-    tags = ''
+    tags = '',
+    status = ''
   } = query;
 
   const filter = {};
 
+  // 默认只显示已审核通过的（兼容旧数据：没有 status 字段的也视为 approved）
+  const conditions = [];
+  if (status) {
+    filter.status = status;
+  } else {
+    conditions.push({ $or: [{ status: 'approved' }, { status: { $exists: false } }] });
+  }
+
   if (keyword) {
-    filter.$or = [
-      { name: { $regex: escapeRegex(keyword), $options: 'i' } },
-      { url: { $regex: escapeRegex(keyword), $options: 'i' } }
-    ];
+    conditions.push({
+      $or: [
+        { name: { $regex: escapeRegex(keyword), $options: 'i' } },
+        { url: { $regex: escapeRegex(keyword), $options: 'i' } }
+      ]
+    });
+  }
+
+  if (conditions.length > 0) {
+    filter.$and = conditions;
   }
 
   if (category) {
@@ -41,6 +57,7 @@ export async function getList(query = {}) {
 
   const [navigations, total] = await Promise.all([
     Navigation.find(filter)
+      .populate('uploadedBy', 'username')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
@@ -57,6 +74,29 @@ export async function getList(query = {}) {
 }
 
 /**
+ * 获取用户提交的导航列表
+ */
+export async function getByUser(userId, query = {}) {
+  const { page = 1, limit = 20 } = query;
+  const pageNum = Math.max(1, parseInt(page, 10));
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10)));
+  const skip = (pageNum - 1) * limitNum;
+
+  const filter = { uploadedBy: userId };
+
+  const [navigations, total] = await Promise.all([
+    Navigation.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean(),
+    Navigation.countDocuments(filter)
+  ]);
+
+  return { navigations, total, page: pageNum, limit: limitNum };
+}
+
+/**
  * 获取导航详情
  */
 export async function getById(id) {
@@ -70,7 +110,7 @@ export async function getById(id) {
 }
 
 /**
- * 创建导航
+ * 创建导航（管理员直接通过）
  */
 export async function create(data) {
   const { name, url, icon, category, tags } = data;
@@ -86,9 +126,65 @@ export async function create(data) {
     url,
     icon: icon || '',
     category,
-    tags: tags || []
+    tags: tags || [],
+    status: 'approved'
   });
 
+  return navigation.toObject();
+}
+
+/**
+ * 用户提交导航（需要审核）
+ */
+export async function submit(data, userId) {
+  const { name, url, icon, category, tags } = data;
+
+  if (!name || !url || !category) {
+    const err = new Error('名称、链接和分类为必填项');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const navigation = await Navigation.create({
+    name,
+    url,
+    icon: icon || '',
+    category,
+    tags: tags || [],
+    status: 'pending',
+    uploadedBy: userId
+  });
+
+  return navigation.toObject();
+}
+
+/**
+ * 审核通过导航
+ */
+export async function approve(id) {
+  const navigation = await Navigation.findById(id);
+  if (!navigation) {
+    const err = new Error('Navigation not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  navigation.status = 'approved';
+  await navigation.save();
+  return navigation.toObject();
+}
+
+/**
+ * 拒绝导航
+ */
+export async function reject(id) {
+  const navigation = await Navigation.findById(id);
+  if (!navigation) {
+    const err = new Error('Navigation not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  navigation.status = 'rejected';
+  await navigation.save();
   return navigation.toObject();
 }
 
@@ -156,7 +252,7 @@ export async function bulkImport(file) {
         continue;
       }
 
-      await Navigation.create({ name, url, icon, category, tags });
+      await Navigation.create({ name, url, icon, category, tags, status: 'approved' });
       imported++;
     } catch {
       failed++;

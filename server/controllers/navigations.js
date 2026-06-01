@@ -49,6 +49,54 @@ export async function createNavigation(req, res) {
 }
 
 /**
+ * POST /api/navigations/submit
+ * 用户提交导航（需审核）
+ */
+export async function submitNavigation(req, res) {
+  try {
+    const navigation = await navigationService.submit(req.body, req.user._id);
+    res.status(201).json({ success: true, data: { navigation } });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Failed to submit navigation'
+    });
+  }
+}
+
+/**
+ * PUT /api/navigations/:id/approve
+ * 审核通过导航（管理员）
+ */
+export async function approveNavigation(req, res) {
+  try {
+    const navigation = await navigationService.approve(req.params.id);
+    res.json({ success: true, data: { navigation } });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Failed to approve navigation'
+    });
+  }
+}
+
+/**
+ * PUT /api/navigations/:id/reject
+ * 拒绝导航（管理员）
+ */
+export async function rejectNavigation(req, res) {
+  try {
+    const navigation = await navigationService.reject(req.params.id);
+    res.json({ success: true, data: { navigation } });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      success: false,
+      error: error.message || 'Failed to reject navigation'
+    });
+  }
+}
+
+/**
  * PUT /api/navigations/:id
  * 更新导航（管理员）
  */

@@ -92,9 +92,10 @@ export async function updatePassword(userId, oldPassword, newPassword) {
 /**
  * Fetch available models from AI API
  * @param {string} userId
+ * @param {Object} [override] - optional { baseUrl, apiKey } from form
  * @returns {Array} models
  */
-export async function fetchAIModels(userId) {
+export async function fetchAIModels(userId, override = {}) {
   const user = await User.findById(userId);
   if (!user) {
     const error = new Error('User not found');
@@ -103,13 +104,16 @@ export async function fetchAIModels(userId) {
   }
 
   const aiConfig = user.aiConfig || {};
-  if (!aiConfig.baseUrl || !aiConfig.apiKey) {
+  const baseUrlRaw = override.baseUrl || aiConfig.baseUrl;
+  const apiKey = override.apiKey || aiConfig.apiKey;
+
+  if (!baseUrlRaw || !apiKey) {
     const error = new Error('Please configure AI baseUrl and apiKey first');
     error.statusCode = 400;
     throw error;
   }
 
-  const baseUrl = await normalizeAndValidateBaseUrl(aiConfig.baseUrl);
+  const baseUrl = await normalizeAndValidateBaseUrl(baseUrlRaw);
   const endpoint = buildModelsUrl(baseUrl);
 
   const controller = new AbortController();
@@ -119,7 +123,7 @@ export async function fetchAIModels(userId) {
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${aiConfig.apiKey}`
+        Authorization: `Bearer ${apiKey}`
       },
       signal: controller.signal
     });
@@ -327,6 +331,42 @@ export async function getUserStats(userId) {
     correctCount,
     accuracy: practiceCount > 0 ? Math.round((correctCount / practiceCount) * 100) : 0
   };
+}
+
+/**
+ * Get user's uploaded questions and navigations
+ * @param {string} userId
+ * @returns {Object} { questions, navigations }
+ */
+export async function getMySubmissions(userId) {
+  const [questions, navigations] = await Promise.all([
+    Question.find({ uploadedBy: userId })
+      .select('text category difficulty status createdAt')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean(),
+    Navigation.find({ uploadedBy: userId })
+      .select('name url category status createdAt')
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+  ]);
+  return { questions, navigations };
+}
+
+/**
+ * Get public site statistics
+ * @returns {Object} site stats
+ */
+export async function getSiteStats() {
+  const [totalUsers, totalQuestions, totalNavigations, totalAffiliates, totalPractices] = await Promise.all([
+    User.countDocuments(),
+    Question.countDocuments(),
+    Navigation.countDocuments(),
+    Affiliate.countDocuments(),
+    PracticeRecord.countDocuments()
+  ]);
+  return { totalUsers, totalQuestions, totalNavigations, totalAffiliates, totalPractices };
 }
 
 /**

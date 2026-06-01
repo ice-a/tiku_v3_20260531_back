@@ -172,6 +172,35 @@ export const aiAnswer = async (req, res) => {
   }
 };
 
+// POST /api/questions/:id/answer-pool - 提交答案到答案池
+export const submitToAnswerPool = async (req, res) => {
+  try {
+    const { answer, source } = req.body;
+    if (!answer) {
+      return res.status(400).json({ success: false, message: '请提供答案' });
+    }
+    const answerPool = await questionsService.submitToAnswerPool(
+      req.params.id,
+      req.user._id,
+      answer,
+      source || 'manual'
+    );
+    res.json({ success: true, data: { answerPool } });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, error: err.message });
+  }
+};
+
+// GET /api/questions/:id/answer-pool - 获取答案池
+export const getAnswerPool = async (req, res) => {
+  try {
+    const answerPool = await questionsService.getAnswerPool(req.params.id);
+    res.json({ success: true, data: { answerPool } });
+  } catch (err) {
+    res.status(err.status || 500).json({ success: false, error: err.message });
+  }
+};
+
 // GET /api/questions/:id/share - 生成分享图片
 export const share = async (req, res) => {
   try {

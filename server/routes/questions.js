@@ -41,6 +41,12 @@ router.post('/:id/ai-score', auth, questionsController.aiScore);
 // POST /api/questions/:id/ai-answer - AI 生成答案（需要认证）
 router.post('/:id/ai-answer', auth, questionsController.aiAnswer);
 
+// POST /api/questions/:id/answer-pool - 提交答案到答案池（需要认证）
+router.post('/:id/answer-pool', auth, questionsController.submitToAnswerPool);
+
+// GET /api/questions/:id/answer-pool - 获取答案池（公开）
+router.get('/:id/answer-pool', questionsController.getAnswerPool);
+
 // GET /api/questions/:id/share - 生成分享图片（公开）
 router.get('/:id/share', questionsController.share);
 

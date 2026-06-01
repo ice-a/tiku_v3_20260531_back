@@ -21,7 +21,16 @@ const navigationSchema = new Schema({
   },
   tags: [{
     type: String
-  }]
+  }],
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'approved'
+  },
+  uploadedBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }
 }, {
   timestamps: true
 });

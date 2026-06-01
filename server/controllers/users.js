@@ -102,11 +102,12 @@ export async function getAIConfig(req, res) {
 }
 
 /**
- * GET /api/users/ai-config/models
+ * POST /api/users/ai-config/models
  */
 export async function getAIModels(req, res) {
   try {
-    const models = await usersService.fetchAIModels(req.user._id);
+    const { baseUrl, apiKey } = req.body;
+    const models = await usersService.fetchAIModels(req.user._id, { baseUrl, apiKey });
     res.json({
       success: true,
       data: { models }
@@ -237,6 +238,30 @@ export async function getNotifications(req, res) {
       success: false,
       error: err.message
     });
+  }
+}
+
+/**
+ * GET /api/users/my-submissions
+ */
+export async function getMySubmissions(req, res) {
+  try {
+    const result = await usersService.getMySubmissions(req.user._id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * GET /api/users/site-stats (public)
+ */
+export async function getSiteStats(req, res) {
+  try {
+    const stats = await usersService.getSiteStats();
+    res.json({ success: true, data: stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 }
 

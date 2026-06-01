@@ -40,7 +40,13 @@ const questionSchema = new Schema({
     views: { type: Number, default: 0 },
     attempts: { type: Number, default: 0 },
     correctAttempts: { type: Number, default: 0 }
-  }
+  },
+  answerPool: [{
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    answer: { type: String, required: true },
+    source: { type: String, enum: ['ai', 'manual'], default: 'manual' },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, {
   timestamps: true
 });

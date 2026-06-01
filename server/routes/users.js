@@ -16,8 +16,8 @@ router.put('/password', auth, usersController.updatePassword);
 // GET /api/users/ai-config - 获取 AI 配置
 router.get('/ai-config', auth, usersController.getAIConfig);
 
-// GET /api/users/ai-config/models - 获取可用模型列表
-router.get('/ai-config/models', auth, usersController.getAIModels);
+// POST /api/users/ai-config/models - 获取可用模型列表
+router.post('/ai-config/models', auth, usersController.getAIModels);
 
 // PUT /api/users/ai-config - 更新 AI 配置
 router.put('/ai-config', auth, usersController.updateAIConfig);
@@ -36,5 +36,11 @@ router.get('/notifications', auth, usersController.getNotifications);
 
 // GET /api/users/stats - 获取用户统计
 router.get('/stats', auth, usersController.getStats);
+
+// GET /api/users/my-submissions - 获取用户上传的题目和导航
+router.get('/my-submissions', auth, usersController.getMySubmissions);
+
+// GET /api/users/site-stats - 公开站点统计（无需登录）
+router.get('/site-stats', usersController.getSiteStats);
 
 export default router;

@@ -86,7 +86,8 @@ export const getList = async (query) => {
 export const getById = async (id) => {
   const question = await Question.findById(id)
     .populate('uploadedBy', 'username')
-    .populate('approvedBy', 'username');
+    .populate('approvedBy', 'username')
+    .populate('answerPool.user', 'username');
 
   if (!question) {
     throw Object.assign(new Error('题目不存在'), { status: 404 });
@@ -381,6 +382,35 @@ export const aiGenerateAnswer = async (questionId, aiConfig) => {
   } catch (err) {
     throw Object.assign(new Error('AI 生成答案失败: ' + err.message), { status: 500 });
   }
+};
+
+// 提交答案到答案池
+export const submitToAnswerPool = async (questionId, userId, answer, source = 'manual') => {
+  const question = await Question.findById(questionId);
+  if (!question) {
+    throw Object.assign(new Error('题目不存在'), { status: 404 });
+  }
+
+  question.answerPool.push({ user: userId, answer, source });
+  await question.save();
+
+  // 返回 populate 后的最新答案池
+  const updated = await Question.findById(questionId)
+    .populate('answerPool.user', 'username');
+
+  return updated.answerPool;
+};
+
+// 获取答案池
+export const getAnswerPool = async (questionId) => {
+  const question = await Question.findById(questionId)
+    .populate('answerPool.user', 'username');
+
+  if (!question) {
+    throw Object.assign(new Error('题目不存在'), { status: 404 });
+  }
+
+  return question.answerPool;
 };
 
 // 获取用户统计

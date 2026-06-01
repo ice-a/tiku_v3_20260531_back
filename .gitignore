@@ -30,3 +30,6 @@ uploads/
 
 # Test coverage
 coverage/
+
+*.py
+*.pyc

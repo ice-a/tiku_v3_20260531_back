@@ -1,0 +1,339 @@
+[
+    {
+        "title": "DigitalOcean",
+        "description": "简单易用的云服务器平台，适合开发者和初创企业。提供SSD存储、全球数据中心、按小时计费等企业级功能。",
+        "url": "https://m.do.co/c/98d0c1f8b37d",
+        "category": "vps",
+        "tags": [
+            "VPS",
+            "云服务器",
+            "国外主机",
+            "开发者友好"
+        ]
+    },
+    {
+        "title": "Vultr",
+        "description": "高性能云服务器，全球17个数据中心可选。支持按小时计费，提供NVMe SSD存储。",
+        "url": "https://www.vultr.com/?ref=9864425",
+        "category": "vps",
+        "tags": [
+            "VPS",
+            "高性能",
+            "全球节点",
+            "NVMe"
+        ]
+    },
+    {
+        "title": "RackNerd",
+        "description": "性价比极高的VPS服务商，提供多种配置选择。技术支持响应迅速，稳定性优秀。",
+        "url": "https://my.racknerd.com/aff.php?aff=13897",
+        "category": "vps",
+        "tags": [
+            "VPS",
+            "性价比",
+            "技术支持",
+            "稳定"
+        ]
+    },
+    {
+        "title": "Namecheap",
+        "description": "性价比高的域名注册商，提供免费的Whois隐私保护。用户界面简洁，管理方便。",
+        "url": "https://www.namecheap.com",
+        "category": "domain",
+        "tags": [
+            "域名",
+            "便宜",
+            "隐私保护",
+            "SSL证书"
+        ]
+    },
+    {
+        "title": "colocrossing",
+        "description": "",
+        "url": "https://cloud.colocrossing.com/aff.php?aff=1191",
+        "category": "domain",
+        "tags": [
+            "便宜"
+        ]
+    },
+    {
+        "title": "Cloudflare Registrar",
+        "description": "成本价域名注册，无隐藏费用。与Cloudflare CDN完美集成，提供顶级安全性。",
+        "url": "https://www.cloudflare.com/products/registrar/",
+        "category": "domain",
+        "tags": [
+            "域名",
+            "成本价",
+            "Cloudflare",
+            "安全"
+        ]
+    },
+    {
+        "title": "Cloudflare",
+        "description": "全球领先的CDN和安全服务提供商，提供网站加速、DDoS防护、SSL证书等服务。",
+        "url": "https://www.cloudflare.com",
+        "category": "cdn",
+        "tags": [
+            "CDN",
+            "安全",
+            "DNS",
+            "SSL"
+        ]
+    },
+    {
+        "title": "KeyCDN",
+        "description": "高性能CDN服务，按用量付费。支持HTTP/2、实时统计、即时清除缓存等高级功能。",
+        "url": "https://www.keycdn.com",
+        "category": "cdn",
+        "tags": [
+            "CDN",
+            "高性能",
+            "按量付费",
+            "HTTP/2"
+        ]
+    },
+    {
+        "title": "Amazon Web Services",
+        "description": "亚马逊云服务，全球最全面的云平台。提供200+种云服务，适合企业级应用。",
+        "url": "https://aws.amazon.com",
+        "category": "cloud",
+        "tags": [
+            "云服务器",
+            "全球",
+            "企业级",
+            "AI/ML"
+        ]
+    },
+    {
+        "title": "阿里云",
+        "description": "国内领先的云计算服务商，提供丰富的云产品和解决方案。适合中国用户访问。",
+        "url": "https://www.aliyun.com",
+        "category": "cloud",
+        "tags": [
+            "国内云",
+            "阿里云",
+            "稳定",
+            "中文支持"
+        ]
+    },
+    {
+        "title": "JetBrains",
+        "url": "https://www.jetbrains.com",
+        "category": "tool"
+    },
+    {
+        "title": "GitHub Pro",
+        "description": "全球最大的代码托管平台高级版，提供私有仓库、高级协作功能。",
+        "url": "https://github.com/pricing",
+        "category": "tool",
+        "tags": [
+            "代码托管",
+            "Git",
+            "协作",
+            "CI/CD"
+        ]
+    },
+    {
+        "title": "Payoneer",
+        "description": "全球支付平台，专为跨境收款设计。支持150+种货币，低手续费快速到账。",
+        "url": "https://www.payoneer.com",
+        "category": "finance",
+        "tags": [
+            "支付",
+            "跨境",
+            "收款",
+            "多币种"
+        ]
+    },
+    {
+        "title": "Notion",
+        "description": "全能工作空间和笔记工具，集笔记、数据库、项目管理于一体。",
+        "url": "https://www.notion.so",
+        "category": "other",
+        "tags": [
+            "笔记",
+            "协作",
+            "生产力",
+            "数据库"
+        ]
+    },
+    {
+        "title": "Figma",
+        "description": "专业的设计协作工具，支持实时协作、原型设计、设计系统管理。",
+        "url": "https://www.figma.com",
+        "category": "other",
+        "tags": [
+            "设计",
+            "协作",
+            "UI/UX",
+            "原型"
+        ]
+    },
+    {
+        "title": "币安",
+        "description": "全球领先的数字货币交易平台，提供现货、合约、理财等全方位服务。",
+        "url": "https://www.bsmkweb.com/referral/earn-together/refer2earn-usdc/claim?hl=zh-CN&ref=GRO_28502_NVR0P&utm_source=default",
+        "category": "btc",
+        "tags": [
+            "数字货币",
+            "交易",
+            "合约",
+            "理财"
+        ]
+    },
+    {
+        "title": "Bitget",
+        "description": "创新型数字货币衍生品交易平台，提供合约、期权、跟单交易等服务。",
+        "url": "https://share.glassgs.com/u/XG07JNPM",
+        "category": "btc",
+        "tags": [
+            "数字货币",
+            "合约",
+            "跟单",
+            "期权"
+        ]
+    },
+    {
+        "title": "OKX钱包",
+        "description": "欧易钱包，安全可靠的数字货币钱包，支持多链资产管理。",
+        "url": "https://www.oyuzh.life/zh-hans/join/52391770?shortCode=YbU25D",
+        "category": "btc",
+        "tags": [
+            "数字货币",
+            "钱包",
+            "多链",
+            "安全"
+        ]
+    },
+    {
+        "title": "Bigme VPN",
+        "description": "高速稳定的VPN服务，支持全球多个节点，保护您的网络隐私。",
+        "url": "https://app.bigme.online/user#/register?code=ZTrIUOBr",
+        "category": "vpn",
+        "tags": [
+            "VPN",
+            "隐私保护",
+            "高速",
+            "多节点"
+        ]
+    },
+    {
+        "title": "抽象头像生成器",
+        "description": "AI驱动的抽象头像生成工具，为您的项目或社交媒体创建独特头像。",
+        "url": "https://avatar.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "AI",
+            "头像",
+            "抽象",
+            "生成器"
+        ]
+    },
+    {
+        "title": "爬虫题库",
+        "description": "编程爬虫学习题库，包含各种网站爬取实例和解决方案。",
+        "url": "https://tiku.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "爬虫",
+            "题库",
+            "学习",
+            "编程"
+        ]
+    },
+    {
+        "title": "CTF工具箱",
+        "description": "网络安全CTF竞赛必备工具集合，包含密码学、逆向工程、Web安全等工具。",
+        "url": "https://ctf.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "CTF",
+            "网络安全",
+            "工具",
+            "竞赛"
+        ]
+    },
+    {
+        "title": "开发者备忘手册",
+        "description": "开发者常用命令和配置备忘，涵盖Linux、Git、Docker等技术栈。",
+        "url": "https://dev.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "开发者",
+            "备忘",
+            "命令",
+            "配置"
+        ]
+    },
+    {
+        "title": "Linux终端命令手册",
+        "description": "全面的Linux命令参考手册，包含详细说明和使用示例。",
+        "url": "https://linux.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "Linux",
+            "命令",
+            "终端",
+            "手册"
+        ]
+    },
+    {
+        "title": "微信公众号Markdown渲染器",
+        "description": "专为微信公众号优化的Markdown渲染工具，支持自定义样式和主题。",
+        "url": "https://md.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "Markdown",
+            "微信",
+            "渲染",
+            "公众号"
+        ]
+    },
+    {
+        "title": "每日60秒新闻",
+        "description": "精选每日重要新闻，60秒快速了解世界动态。",
+        "url": "https://60.020417.xyz/",
+        "category": "muzi",
+        "tags": [
+            "新闻",
+            "60秒",
+            "每日",
+            "精选"
+        ]
+    },
+    {
+        "title": "ColoCrossing",
+        "description": "性价比极高的VPS和独立服务器提供商，特别适合需要高性能计算的用户。",
+        "url": "https://cloud.colocrossing.com/aff.php?aff=1191",
+        "category": "vps",
+        "tags": [
+            "VPS",
+            "独立服务器",
+            "性价比",
+            "高性能"
+        ]
+    },
+    {
+        "title": "Hero-SMS接码平台",
+        "description": "专业的短信接码平台，支持全球多个国家的手机号码接收验证码。",
+        "url": "https://hero-sms.com/?ref=380169",
+        "category": "tool",
+        "tags": [
+            "短信",
+            "接码",
+            "验证码",
+            "全球"
+        ]
+    },
+    {
+        "title": "Netflix",
+        "description": "全球领先的流媒体影视平台，提供海量原创内容和经典影视作品。",
+        "url": "https://www.netflix.com",
+        "tags": [
+            "流媒体",
+            "影视",
+            "原创",
+            "全球"
+        ]
+    }
+]
