@@ -34,3 +34,4 @@ coverage/
 *.py
 *.pyc
 *.json
+!vercel.json

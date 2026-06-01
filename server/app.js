@@ -3,10 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import config from './config/index.js';
-import connectDB from './config/database.js';
-
-// 连接数据库
-connectDB();
 
 const app = express();
 
@@ -75,6 +71,7 @@ import userRoutes from './routes/users.js';
 import careerRoutes from './routes/career.js';
 import toolRoutes from './routes/tools.js';
 import adminRoutes from './routes/admin.js';
+import miniprogramRoutes from './routes/miniprogram.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -84,6 +81,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/career', careerRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/mp', miniprogramRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {
@@ -99,9 +97,5 @@ app.use((err, req, res, _next) => {
   });
 });
 
-// 启动服务器
-app.listen(config.port, () => {
-  console.log(`服务器已启动，端口: ${config.port}`);
-});
-
 export default app;
+export { config };
