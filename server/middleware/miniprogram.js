@@ -1,5 +1,6 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { validateToken } from '../services/miniprogramAuth.js';
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
 const REQUEST_WINDOW_MS = 5 * 60 * 1000;
 const clientPattern = /^mp_[a-z0-9]+_[a-z0-9]+$/i;
@@ -48,7 +49,7 @@ const miniprogramLimiter = rateLimit({
 });
 
 async function optionalMiniProgramAuth(req, res, next) {
-  const token = req.get('X-MP-Token') || req.get('Authorization')?.replace('Bearer ', '');
+  const token = req.get('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
     req.mpUser = null;
@@ -56,28 +57,35 @@ async function optionalMiniProgramAuth(req, res, next) {
   }
 
   try {
-    req.mpUser = await validateToken(token);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('_id username email role nickname avatar aiConfig');
+    req.mpUser = user || null;
   } catch {
-    return res.status(401).json({ success: false, error: '小程序登录态无效' });
+    return res.status(401).json({ success: false, error: '登录态无效' });
   }
 
   return next();
 }
 
 async function requireMiniProgramAuth(req, res, next) {
-  const token = req.get('X-MP-Token') || req.get('Authorization')?.replace('Bearer ', '');
+  const token = req.get('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    return res.status(401).json({ success: false, error: '请先登录小程序' });
+    return res.status(401).json({ success: false, error: '请先登录' });
   }
 
   try {
-    req.mpUser = await validateToken(token);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('_id username email role nickname avatar aiConfig');
+    if (!user) {
+      return res.status(401).json({ success: false, error: '登录态无效' });
+    }
+    req.mpUser = user;
     return next();
-  } catch (err) {
-    return res.status(err.status || 401).json({
+  } catch {
+    return res.status(401).json({
       success: false,
-      error: err.message || '小程序登录态无效',
+      error: '登录态无效',
     });
   }
 }

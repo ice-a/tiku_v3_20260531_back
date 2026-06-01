@@ -25,6 +25,21 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  authProvider: {
+    type: String,
+    enum: ['password', 'github'],
+    default: 'password'
+  },
+  githubId: {
+    type: String,
+    trim: true,
+    unique: true,
+    sparse: true
+  },
+  githubUsername: {
+    type: String,
+    trim: true
+  },
   nickname: { type: String, trim: true, maxlength: 50, default: '' },
   phone: { type: String, trim: true, maxlength: 30, default: '' },
   bio: { type: String, trim: true, maxlength: 500, default: '' },

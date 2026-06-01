@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import config from '../config/index.js';
+import { getHitokoto } from './hitokoto.js';
 
 const transporter = nodemailer.createTransport({
   host: config.smtp.host,
@@ -11,19 +12,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const HITOKOTO_API = 'https://v1.hitokoto.cn/';
+function assertSmtpConfig() {
+  const missing = [];
+  if (!config.smtp.host) missing.push('SMTP_HOST');
+  if (!config.smtp.user) missing.push('SMTP_USER');
+  if (!config.smtp.pass) missing.push('SMTP_PASS');
+  if (!config.smtp.from) missing.push('SMTP_FROM');
 
-async function fetchHitokoto() {
-  try {
-    const res = await fetch(HITOKOTO_API, { signal: AbortSignal.timeout(3000) });
-    const data = await res.json();
-    return {
-      text: data.hitokoto || '生活不止眼前的苟且，还有诗和远方。',
-      from: data.from || '',
-      fromWho: data.from_who || '',
-    };
-  } catch {
-    return { text: '生活不止眼前的苟且，还有诗和远方。', from: '', fromWho: '' };
+  if (missing.length) {
+    throw new Error(`邮件服务未配置完整，请检查 ${missing.join(', ')}`);
   }
 }
 
@@ -33,6 +30,7 @@ function buildHitokotoHtml(quote) {
     : '';
   return `
     <div style="margin-top:24px;padding:16px 20px;background:#f8f9fa;border-left:3px solid #6366f1;border-radius:4px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6366f1;font-weight:600;">今日一言</p>
       <p style="margin:0;font-size:14px;color:#475569;font-style:italic;line-height:1.6;">"${quote.text}"</p>
       ${source ? `<p style="margin:8px 0 0;font-size:12px;color:#94a3b8;text-align:right;">—— ${source}</p>` : ''}
     </div>
@@ -63,7 +61,9 @@ function wrapTemplate(title, bodyHtml, quote) {
 }
 
 export async function sendMail(to, subject, title, bodyHtml) {
-  const quote = await fetchHitokoto();
+  assertSmtpConfig();
+
+  const quote = await getHitokoto({ refresh: true });
   const html = wrapTemplate(title, bodyHtml, quote);
 
   await transporter.sendMail({
@@ -77,7 +77,7 @@ export async function sendMail(to, subject, title, bodyHtml) {
 export async function sendRegisterEmail(user) {
   const body = `
     <p style="margin:0 0 12px;color:#334155;line-height:1.6;">
-      欢迎加入题库系统！你的账号已注册成功。
+      恭喜你，账号已注册成功。欢迎加入题库系统！
     </p>
     <p style="margin:0;color:#64748b;font-size:14px;">
       用户名：<strong>${user.username}</strong><br>

@@ -59,6 +59,7 @@ const authLimiter = rateLimit({
   message: { success: false, error: '请求过于频繁，请稍后再试' }
 });
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/github/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/refresh', authLimiter);
 
@@ -72,6 +73,7 @@ import careerRoutes from './routes/career.js';
 import toolRoutes from './routes/tools.js';
 import adminRoutes from './routes/admin.js';
 import miniprogramRoutes from './routes/miniprogram.js';
+import hitokotoRoutes from './routes/hitokoto.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -82,6 +84,7 @@ app.use('/api/career', careerRoutes);
 app.use('/api/tools', toolRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mp', miniprogramRoutes);
+app.use('/api/hitokoto', hitokotoRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

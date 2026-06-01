@@ -59,14 +59,13 @@
 | `PORT` | 否 | 服务器端口，默认 3000 |
 | `CORS_ORIGIN` | 否 | 允许的前端源（逗号分隔），如 `https://tiku.020417.xyz,https://020417.xyz` |
 | `MINIPROGRAM_RATE_LIMIT` | 否 | 小程序专用接口每分钟请求上限，默认 90 |
-| `WECHAT_MINIPROGRAM_APPID` | 小程序 | 微信小程序 AppID，用于 code2Session |
-| `WECHAT_MINIPROGRAM_SECRET` | 小程序 | 微信小程序 AppSecret，用于 code2Session |
-| `MINIPROGRAM_SESSION_SECRET` | 小程序 | session_key 哈希密钥，默认回退 JWT_SECRET |
-| `MINIPROGRAM_TOKEN_EXPIRES_IN` | 小程序 | 小程序后端登录态有效期，默认 7d |
+| `GITHUB_CLIENT_ID` | Web GitHub 登录 | GitHub OAuth App Client ID |
+| `GITHUB_CLIENT_SECRET` | Web GitHub 登录 | GitHub OAuth App Client Secret |
 | `SMTP_HOST` | 否 | SMTP 服务器 |
 | `SMTP_PORT` | 否 | SMTP 端口 |
 | `SMTP_USER` | 否 | SMTP 用户名 |
 | `SMTP_PASS` | 否 | SMTP 密码 |
+| `SMTP_FROM` | 否 | 发件人，建议格式：`题库系统 <your_email@example.com>`。未配置时默认使用 `SMTP_USER` |
 
 ## 本地开发
 
@@ -118,6 +117,7 @@ npm run test:watch
 | `/api/tools` | 在线工具（图片、文本、代码、加密等） |
 | `/api/admin` | 管理员功能 |
 | `/api/mp` | 微信小程序专用公开接口，带客户端校验、限流和字段裁剪 |
+| `/api/hitokoto` | 一言接口代理，供网页展示和邮件模板复用 |
 | `/api/health` | 健康检查 |
 
 ## 项目结构

@@ -1,5 +1,5 @@
 import * as miniprogramService from '../services/miniprogram.js';
-import * as miniprogramAuthService from '../services/miniprogramAuth.js';
+import { getHitokoto as getHitokotoService } from '../services/hitokoto.js';
 
 function sendError(res, err) {
   res.status(err.status || err.statusCode || 500).json({
@@ -37,24 +37,11 @@ export async function getQuestionById(req, res) {
   }
 }
 
-export async function login(req, res) {
-  try {
-    const data = await miniprogramAuthService.login({
-      code: req.body.code,
-      clientId: req.get('X-MP-Client') || '',
-    });
-    res.json({ success: true, data });
-  } catch (err) {
-    sendError(res, err);
-  }
-}
-
 export async function getSession(req, res) {
   res.json({
     success: true,
     data: {
-      openid: req.mpUser.openid,
-      sessionId: req.mpUser.sessionId,
+      user: req.mpUser,
     },
   });
 }
@@ -71,6 +58,15 @@ export async function getNavigations(req, res) {
 export async function getAffiliates(req, res) {
   try {
     const data = await miniprogramService.getAffiliates(req.query);
+    res.json({ success: true, data });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function getHitokoto(req, res) {
+  try {
+    const data = await getHitokotoService({ refresh: req.query.refresh === '1' });
     res.json({ success: true, data });
   } catch (err) {
     sendError(res, err);

@@ -83,6 +83,39 @@ export async function login(req, res) {
 }
 
 /**
+ * POST /api/auth/github/login
+ */
+export async function githubLogin(req, res) {
+  try {
+    const { code, redirectUri } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        error: 'GitHub 授权 code 不能为空'
+      });
+    }
+
+    const result = await authService.loginWithGithub(code, redirectUri);
+
+    res.json({
+      success: true,
+      data: {
+        user: result.user,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+      }
+    });
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({
+      success: false,
+      error: err.message
+    });
+  }
+}
+
+/**
  * POST /api/auth/refresh
  */
 export async function refresh(req, res) {

@@ -7,6 +7,160 @@ import {
 } from '../utils/token.js';
 import { sendResetPasswordEmail, sendRegisterEmail, sendLoginEmail } from './email.js';
 
+const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const GITHUB_USER_URL = 'https://api.github.com/user';
+const GITHUB_EMAILS_URL = 'https://api.github.com/user/emails';
+
+function createAuthPayload(user) {
+  const accessToken = generateAccessToken({ userId: user._id, role: user.role });
+  const refreshToken = generateRefreshToken({ userId: user._id });
+  return { user, accessToken, refreshToken };
+}
+
+function createRandomPassword() {
+  return crypto.randomBytes(24).toString('hex');
+}
+
+function getGithubConfig() {
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    const error = new Error('GitHub OAuth Client ID 或 Client Secret 未配置');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return { clientId, clientSecret };
+}
+
+async function requestGithubJson(url, options = {}) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'tiku-auth',
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+  const data = await response.json();
+
+  if (!response.ok || data.error) {
+    const error = new Error(data.error_description || data.message || 'GitHub 授权失败');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return data;
+}
+
+async function exchangeGithubCode(code, redirectUri) {
+  const { clientId, clientSecret } = getGithubConfig();
+  const body = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    code,
+  };
+
+  if (redirectUri) {
+    body.redirect_uri = redirectUri;
+  }
+
+  const tokenData = await requestGithubJson(GITHUB_TOKEN_URL, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!tokenData.access_token) {
+    const error = new Error('GitHub 授权返回缺少 access_token');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  return tokenData.access_token;
+}
+
+async function getGithubProfile(accessToken) {
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const [profile, emails] = await Promise.all([
+    requestGithubJson(GITHUB_USER_URL, { headers }),
+    requestGithubJson(GITHUB_EMAILS_URL, { headers }).catch(() => []),
+  ]);
+
+  const primaryEmail = Array.isArray(emails)
+    ? emails.find((item) => item.primary && item.verified)?.email || emails.find((item) => item.verified)?.email
+    : '';
+
+  return {
+    id: String(profile.id || ''),
+    login: profile.login || '',
+    name: profile.name || profile.login || 'GitHub 用户',
+    email: primaryEmail || profile.email || '',
+    avatar: profile.avatar_url || '',
+    htmlUrl: profile.html_url || '',
+  };
+}
+
+function sanitizeGithubUsername(profile) {
+  const base = String(profile.login || profile.name || 'github')
+    .replace(/[^\w\u4e00-\u9fa5-]/g, '')
+    .slice(0, 18) || 'github';
+  return `${base}_${profile.id.slice(-6)}`;
+}
+
+function createGithubEmail(profile) {
+  return profile.email || `github_${profile.id}@github.local`;
+}
+
+async function createUniqueGithubUsername(profile) {
+  const base = sanitizeGithubUsername(profile);
+  let username = base;
+  let suffix = 1;
+
+  while (await User.exists({ username })) {
+    suffix += 1;
+    username = `${base}_${suffix}`;
+  }
+
+  return username;
+}
+
+async function findGithubUser(profile) {
+  let user = await User.findOne({ githubId: profile.id });
+  if (!user && profile.email) {
+    user = await User.findOne({ email: profile.email });
+  }
+  return user;
+}
+
+async function createGithubUser(profile) {
+  const username = await createUniqueGithubUsername(profile);
+  const email = createGithubEmail(profile);
+  const existingEmailUser = await User.findOne({ email });
+  if (existingEmailUser) {
+    existingEmailUser.githubId = existingEmailUser.githubId || profile.id;
+    existingEmailUser.githubUsername = profile.login || existingEmailUser.githubUsername;
+    existingEmailUser.nickname = existingEmailUser.nickname || profile.name;
+    existingEmailUser.avatar = existingEmailUser.avatar || profile.avatar;
+    return existingEmailUser;
+  }
+
+  const user = new User({
+    username,
+    email,
+    password: createRandomPassword(),
+    authProvider: 'github',
+    githubId: profile.id,
+    githubUsername: profile.login,
+    nickname: profile.name,
+    avatar: profile.avatar,
+    emailVerified: Boolean(profile.email),
+  });
+
+  return user;
+}
+
 /**
  * Register a new user
  * @param {string} username
@@ -30,12 +184,11 @@ export async function register(username, email, password) {
   const user = new User({ username, email, password });
   await user.save();
 
-  const accessToken = generateAccessToken({ userId: user._id, role: user.role });
-  const refreshToken = generateRefreshToken({ userId: user._id });
+  await sendRegisterEmail(user).catch((err) => {
+    console.error('Failed to send register email:', err.message);
+  });
 
-  sendRegisterEmail(user).catch(() => {});
-
-  return { user, accessToken, refreshToken };
+  return createAuthPayload(user);
 }
 
 /**
@@ -60,12 +213,50 @@ export async function login(email, password) {
     throw error;
   }
 
-  const accessToken = generateAccessToken({ userId: user._id, role: user.role });
-  const refreshToken = generateRefreshToken({ userId: user._id });
-
   sendLoginEmail(user).catch(() => {});
 
-  return { user, accessToken, refreshToken };
+  return createAuthPayload(user);
+}
+
+/**
+ * Login with GitHub OAuth code
+ * @param {string} code
+ * @param {string} redirectUri
+ * @returns {Object} { user, accessToken, refreshToken }
+ */
+export async function loginWithGithub(code, redirectUri = '') {
+  if (!code) {
+    const error = new Error('GitHub 授权 code 不能为空');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const accessToken = await exchangeGithubCode(code, redirectUri);
+  const profile = await getGithubProfile(accessToken);
+
+  if (!profile.id) {
+    const error = new Error('GitHub 授权返回缺少用户 ID');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  let user = await findGithubUser(profile);
+  if (!user) {
+    user = await createGithubUser(profile);
+  }
+
+  user.authProvider = user.authProvider === 'password' ? user.authProvider : 'github';
+  user.githubId = user.githubId || profile.id;
+  user.githubUsername = profile.login || user.githubUsername;
+  user.nickname = user.nickname || profile.name;
+  user.avatar = user.avatar || profile.avatar;
+  if (profile.email && user.email === createGithubEmail({ ...profile, email: '' })) {
+    user.email = profile.email;
+    user.emailVerified = true;
+  }
+
+  await user.save();
+  return createAuthPayload(user);
 }
 
 /**
