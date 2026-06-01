@@ -43,4 +43,10 @@ router.get('/my-submissions', auth, usersController.getMySubmissions);
 // GET /api/users/site-stats - 公开站点统计（无需登录）
 router.get('/site-stats', usersController.getSiteStats);
 
+// POST /api/users/email/bind - 发送邮箱绑定验证邮件
+router.post('/email/bind', auth, usersController.sendEmailVerification);
+
+// POST /api/users/email/verify - 验证邮箱
+router.post('/email/verify', auth, usersController.verifyEmail);
+
 export default router;

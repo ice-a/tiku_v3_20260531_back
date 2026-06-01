@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import User from '../models/User.js';
 import Favorite from '../models/Favorite.js';
 import PracticeRecord from '../models/PracticeRecord.js';
@@ -5,6 +6,7 @@ import Question from '../models/Question.js';
 import Navigation from '../models/Navigation.js';
 import Affiliate from '../models/Affiliate.js';
 import { normalizeAndValidateBaseUrl, buildModelsUrl } from './aiClient.js';
+import { sendEmailVerificationEmail } from './email.js';
 
 /**
  * Get user profile
@@ -28,7 +30,7 @@ export async function getProfile(userId) {
  * @returns {Object} updated user
  */
 export async function updateProfile(userId, data) {
-  const allowedFields = ['username', 'avatar', 'nickname', 'phone', 'bio', 'notificationPreferences'];
+  const allowedFields = ['username', 'avatar', 'nickname', 'phone', 'bio', 'notificationPreferences', 'socials', 'customSocial'];
   const updates = {};
 
   for (const field of allowedFields) {
@@ -367,6 +369,71 @@ export async function getSiteStats() {
     PracticeRecord.countDocuments()
   ]);
   return { totalUsers, totalQuestions, totalNavigations, totalAffiliates, totalPractices };
+}
+
+/**
+ * Send email verification for binding
+ * @param {string} userId
+ * @param {string} email
+ */
+export async function sendEmailVerification(userId, email) {
+  const user = await User.findById(userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Check if email is already used by another user
+  const existing = await User.findOne({ email, _id: { $ne: userId } });
+  if (existing) {
+    const error = new Error('该邮箱已被其他用户使用');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  // Generate verification token
+  const verifyToken = crypto.randomBytes(32).toString('hex');
+  const hashedToken = crypto.createHash('sha256').update(verifyToken).digest('hex');
+
+  user.emailVerificationToken = hashedToken;
+  user.emailVerificationExpire = new Date(Date.now() + 30 * 60 * 1000);
+  if (user.email !== email) {
+    user.email = email;
+    user.emailVerified = false;
+  }
+  await user.save();
+
+  await sendEmailVerificationEmail(user, verifyToken);
+}
+
+/**
+ * Verify email with token
+ * @param {string} userId
+ * @param {string} token
+ * @returns {Object} user
+ */
+export async function verifyEmail(userId, token) {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    _id: userId,
+    emailVerificationToken: hashedToken,
+    emailVerificationExpire: { $gt: new Date() },
+  });
+
+  if (!user) {
+    const error = new Error('验证链接无效或已过期');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = '';
+  user.emailVerificationExpire = undefined;
+  await user.save();
+
+  return user;
 }
 
 /**

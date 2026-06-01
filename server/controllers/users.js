@@ -24,14 +24,16 @@ export async function getProfile(req, res) {
  */
 export async function updateProfile(req, res) {
   try {
-    const { username, avatar, nickname, phone, bio, notificationPreferences } = req.body;
+    const { username, avatar, nickname, phone, bio, notificationPreferences, socials, customSocial } = req.body;
     const user = await usersService.updateProfile(req.user._id, {
       username,
       avatar,
       nickname,
       phone,
       bio,
-      notificationPreferences
+      notificationPreferences,
+      socials,
+      customSocial
     });
     res.json({
       success: true,
@@ -274,5 +276,43 @@ export async function getStats(req, res) {
     res.json({ success: true, data: stats });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/users/email/bind - 发送邮箱绑定验证码
+ */
+export async function sendEmailVerification(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: '请提供邮箱地址' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, error: '邮箱格式不正确' });
+    }
+    await usersService.sendEmailVerification(req.user._id, email);
+    res.json({ success: true, message: '验证邮件已发送，请查收' });
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * POST /api/users/email/verify - 验证邮箱
+ */
+export async function verifyEmail(req, res) {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: '请提供验证令牌' });
+    }
+    const user = await usersService.verifyEmail(req.user._id, token);
+    res.json({ success: true, message: '邮箱验证成功', data: { email: user.email, emailVerified: user.emailVerified } });
+  } catch (err) {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({ success: false, error: err.message });
   }
 }

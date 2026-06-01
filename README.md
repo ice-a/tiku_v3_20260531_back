@@ -57,7 +57,7 @@
 | `JWT_SECRET` | 是 | JWT 签名密钥 |
 | `JWT_REFRESH_SECRET` | 是 | JWT 刷新密钥 |
 | `PORT` | 否 | 服务器端口，默认 3000 |
-| `CORS_ORIGIN` | 否 | 允许的前端源（逗号分隔） |
+| `CORS_ORIGIN` | 否 | 允许的前端源（逗号分隔），如 `https://tiku.020417.xyz,https://020417.xyz` |
 | `SMTP_HOST` | 否 | SMTP 服务器 |
 | `SMTP_PORT` | 否 | SMTP 端口 |
 | `SMTP_USER` | 否 | SMTP 用户名 |

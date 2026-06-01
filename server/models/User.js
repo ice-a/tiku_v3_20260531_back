@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema({
   nickname: { type: String, trim: true, maxlength: 50, default: '' },
   phone: { type: String, trim: true, maxlength: 30, default: '' },
   bio: { type: String, trim: true, maxlength: 500, default: '' },
+  socials: { type: mongoose.Schema.Types.Mixed, default: {} },
   aiConfig: {
     baseUrl: { type: String, default: '' },
     apiKey: { type: String, default: '' },
@@ -40,6 +41,9 @@ const userSchema = new mongoose.Schema({
     email: { type: Boolean, default: true },
     bark: { type: Boolean, default: false }
   },
+  emailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String, default: '' },
+  emailVerificationExpire: { type: Date },
   resetPasswordToken: { type: String, default: '' },
   resetPasswordExpire: { type: Date }
 }, {

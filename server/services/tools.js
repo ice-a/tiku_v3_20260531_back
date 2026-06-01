@@ -171,46 +171,62 @@ export function formatHTML(text, indent = 2) {
 }
 
 /**
- * Generate a random crawler User-Agent string
+ * Generate a random User-Agent string
+ * @param {Object} options - { browser, os }
  * @returns {string}
  */
-export function generateUA() {
+export function generateUA(options = {}) {
+  const { browser, os } = options;
+
   const chromeVersions = ['120.0.6099.109', '121.0.6167.85', '122.0.6261.69', '123.0.6312.86', '124.0.6367.91'];
   const firefoxVersions = ['121.0', '122.0', '123.0', '124.0', '125.0'];
   const safariVersions = ['17.2', '17.3', '17.4', '17.5'];
+  const edgeVersions = ['120.0.2210.91', '121.0.2277.83', '122.0.2365.59', '123.0.2420.65', '124.0.2478.51'];
 
-  const platforms = [
-    // Windows
-    () => {
-      const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)];
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
-    },
-    () => {
-      const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)];
-      return `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${v}) Gecko/20100101 Firefox/${v}`;
-    },
-    // macOS
-    () => {
-      const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)];
-      return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
-    },
-    () => {
-      const v = safariVersions[Math.floor(Math.random() * safariVersions.length)];
-      return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v} Safari/605.1.15`;
-    },
-    // Linux
-    () => {
-      const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)];
-      return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
-    },
-    () => {
-      const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)];
-      return `Mozilla/5.0 (X11; Linux x86_64; rv:${v}) Gecko/20100101 Firefox/${v}`;
-    },
+  const allPlatforms = [
+    { os: 'windows', browsers: [
+      { name: 'chrome', gen: () => { const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)]; return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`; } },
+      { name: 'firefox', gen: () => { const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)]; return `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${v}) Gecko/20100101 Firefox/${v}`; } },
+      { name: 'edge', gen: () => { const v = edgeVersions[Math.floor(Math.random() * edgeVersions.length)]; return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36 Edg/${v}`; } },
+    ]},
+    { os: 'macos', browsers: [
+      { name: 'chrome', gen: () => { const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)]; return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`; } },
+      { name: 'safari', gen: () => { const v = safariVersions[Math.floor(Math.random() * safariVersions.length)]; return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v} Safari/605.1.15`; } },
+      { name: 'firefox', gen: () => { const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)]; return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7; rv:${v}) Gecko/20100101 Firefox/${v}`; } },
+      { name: 'edge', gen: () => { const v = edgeVersions[Math.floor(Math.random() * edgeVersions.length)]; return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36 Edg/${v}`; } },
+    ]},
+    { os: 'linux', browsers: [
+      { name: 'chrome', gen: () => { const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)]; return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`; } },
+      { name: 'firefox', gen: () => { const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)]; return `Mozilla/5.0 (X11; Linux x86_64; rv:${v}) Gecko/20100101 Firefox/${v}`; } },
+    ]},
+    { os: 'android', browsers: [
+      { name: 'chrome', gen: () => { const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)]; return `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Mobile Safari/537.36`; } },
+      { name: 'firefox', gen: () => { const v = firefoxVersions[Math.floor(Math.random() * firefoxVersions.length)]; return `Mozilla/5.0 (Android 14; Mobile; rv:${v}) Gecko/${v} Firefox/${v}`; } },
+    ]},
+    { os: 'ios', browsers: [
+      { name: 'safari', gen: () => { const v = safariVersions[Math.floor(Math.random() * safariVersions.length)]; return `Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${v} Mobile/15E148 Safari/604.1`; } },
+      { name: 'chrome', gen: () => { const v = chromeVersions[Math.floor(Math.random() * chromeVersions.length)]; return `Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/${v} Mobile/15E148 Safari/604.1`; } },
+    ]},
   ];
 
-  const generator = platforms[Math.floor(Math.random() * platforms.length)];
-  return generator();
+  let filtered = allPlatforms;
+  if (os) {
+    const osLower = os.toLowerCase();
+    filtered = allPlatforms.filter(p => p.os === osLower);
+    if (filtered.length === 0) filtered = allPlatforms;
+  }
+
+  const platform = filtered[Math.floor(Math.random() * filtered.length)];
+
+  let browsers = platform.browsers;
+  if (browser) {
+    const browserLower = browser.toLowerCase();
+    const filteredBrowsers = browsers.filter(b => b.name === browserLower);
+    if (filteredBrowsers.length > 0) browsers = filteredBrowsers;
+  }
+
+  const picked = browsers[Math.floor(Math.random() * browsers.length)];
+  return picked.gen();
 }
 
 /**

@@ -356,22 +356,20 @@ export async function getDashboardStats() {
  * @returns {Object} settings
  */
 export async function getSystemSettings() {
-  // Return default settings (could be stored in DB in the future)
   return {
     siteName: process.env.SITE_NAME || '题库系统',
     siteDescription: process.env.SITE_DESCRIPTION || '',
     registrationEnabled: process.env.REGISTRATION_ENABLED !== 'false',
-    emailVerificationEnabled: process.env.EMAIL_VERIFICATION === 'true'
+    emailVerificationEnabled: process.env.EMAIL_VERIFICATION === 'true',
+    smtpHost: process.env.SMTP_HOST || '',
+    smtpPort: process.env.SMTP_PORT || '465',
+    smtpUser: process.env.SMTP_USER || '',
+    smtpFrom: process.env.SMTP_FROM || '',
   };
 }
 
-/**
- * Update system settings
- * @param {Object} settings
- * @returns {Object} updated settings
- */
 export async function updateSystemSettings(settings) {
-  const allowedFields = ['siteName', 'siteDescription', 'registrationEnabled', 'emailVerificationEnabled'];
+  const allowedFields = ['siteName', 'siteDescription', 'registrationEnabled', 'emailVerificationEnabled', 'smtpHost', 'smtpPort', 'smtpUser', 'smtpFrom'];
   const updates = {};
 
   for (const field of allowedFields) {
@@ -380,7 +378,6 @@ export async function updateSystemSettings(settings) {
     }
   }
 
-  // For now, return merged settings (could be persisted to DB in the future)
   const current = await getSystemSettings();
   return { ...current, ...updates };
 }

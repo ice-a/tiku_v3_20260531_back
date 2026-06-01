@@ -103,6 +103,26 @@ export async function sendLoginEmail(user) {
   await sendMail(user.email, '登录通知 - 题库系统', '登录通知', body);
 }
 
+export async function sendEmailVerificationEmail(user, verifyToken) {
+  const verifyUrl = `${config.appUrl}/verify-email?token=${verifyToken}&userId=${user._id}`;
+  const body = `
+    <p style="margin:0 0 12px;color:#334155;line-height:1.6;">
+      你正在绑定邮箱，点击下方按钮完成验证。链接 30 分钟内有效。
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${verifyUrl}"
+         style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;">
+        验证邮箱
+      </a>
+    </div>
+    <p style="margin:0;color:#94a3b8;font-size:13px;">
+      如果按钮无法点击，请复制以下链接到浏览器打开：<br>
+      <a href="${verifyUrl}" style="color:#6366f1;word-break:break-all;">${verifyUrl}</a>
+    </p>
+  `;
+  await sendMail(user.email, '邮箱验证 - 题库系统', '验证你的邮箱', body);
+}
+
 export async function sendResetPasswordEmail(user, resetToken) {
   const resetUrl = `${config.appUrl}/reset-password?token=${resetToken}`;
   const body = `

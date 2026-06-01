@@ -253,14 +253,24 @@ export async function htmlFormat(req, res) {
 
 /**
  * GET /api/tools/ua/generate
+ * Query: browser, os, count
  */
-export async function uaGenerate(_req, res) {
+export async function uaGenerate(req, res) {
   try {
-    const ua = toolsService.generateUA();
+    const { browser, os, count = 1 } = req.query;
+    const options = {};
+    if (browser) options.browser = browser;
+    if (os) options.os = os;
+
+    const countNum = Math.min(parseInt(count, 10) || 1, 10);
+    const uuids = [];
+    for (let i = 0; i < countNum; i++) {
+      uuids.push(toolsService.generateUA(options));
+    }
 
     res.json({
       success: true,
-      data: { ua },
+      data: countNum === 1 ? { ua: uuids[0] } : { ua: uuids },
     });
   } catch (err) {
     const statusCode = err.statusCode || 500;

@@ -13,14 +13,37 @@ const app = express();
 // 安全头
 app.use(helmet());
 
-// CORS 白名单
+// CORS 白名单。开发环境同时兼容 localhost 和 127.0.0.1，避免前端 dev server
+// 绑定地址变化后被误拦截。
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:5173'];
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean)
+  : [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'https://tiku.020417.xyz',
+      'https://020417.xyz',
+    ];
+
+const devHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isAllowedOrigin(origin) {
+  if (!origin || allowedOrigins.includes(origin)) return true;
+
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const url = new URL(origin);
+      return url.port === '5173' && devHostnames.has(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
