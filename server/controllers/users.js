@@ -1,318 +1,137 @@
 import * as usersService from '../services/users.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { badRequest } from '../utils/HttpError.js';
+import { validatePasswordStrength } from '../utils/passwordPolicy.js';
 
-/**
- * GET /api/users/profile
- */
-export async function getProfile(req, res) {
-  try {
-    const user = await usersService.getProfile(req.user._id);
-    res.json({
-      success: true,
-      data: { user }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const getProfile = asyncHandler(async (req, res) => {
+  const user = await usersService.getProfile(req.user._id);
+  res.json({ success: true, data: { user } });
+});
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { username, avatar, nickname, phone, bio, notificationPreferences, socials, customSocial } = req.body;
+  const user = await usersService.updateProfile(req.user._id, {
+    username,
+    avatar,
+    nickname,
+    phone,
+    bio,
+    notificationPreferences,
+    socials,
+    customSocial,
+  });
+  res.json({ success: true, data: { user } });
+});
+
+export const updatePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw badRequest('Old password and new password are required');
   }
-}
 
-/**
- * PUT /api/users/profile
- */
-export async function updateProfile(req, res) {
-  try {
-    const { username, avatar, nickname, phone, bio, notificationPreferences, socials, customSocial } = req.body;
-    const user = await usersService.updateProfile(req.user._id, {
-      username,
-      avatar,
-      nickname,
-      phone,
-      bio,
-      notificationPreferences,
-      socials,
-      customSocial
-    });
-    res.json({
-      success: true,
-      data: { user }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  const pwCheck = validatePasswordStrength(newPassword);
+  if (!pwCheck.ok) {
+    throw badRequest(pwCheck.reason);
   }
-}
 
-/**
- * PUT /api/users/password
- */
-export async function updatePassword(req, res) {
-  try {
-    const { oldPassword, newPassword } = req.body;
+  await usersService.updatePassword(req.user._id, oldPassword, newPassword);
+  res.json({ success: true, message: 'Password updated' });
+});
 
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        error: 'Old password and new password are required'
-      });
-    }
+export const getAIConfig = asyncHandler(async (req, res) => {
+  const aiConfig = await usersService.getAIConfig(req.user._id);
+  res.json({ success: true, data: { aiConfig } });
+});
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'New password must be at least 6 characters'
-      });
-    }
+export const getAIModels = asyncHandler(async (req, res) => {
+  const { baseUrl, apiKey } = req.body;
+  const models = await usersService.fetchAIModels(req.user._id, { baseUrl, apiKey });
+  res.json({ success: true, data: { models } });
+});
 
-    await usersService.updatePassword(req.user._id, oldPassword, newPassword);
+export const updateAIConfig = asyncHandler(async (req, res) => {
+  const { baseUrl, apiKey, model, enabled } = req.body;
+  const aiConfig = await usersService.updateAIConfig(req.user._id, {
+    baseUrl,
+    apiKey,
+    model,
+    enabled,
+  });
+  res.json({ success: true, data: { aiConfig } });
+});
 
-    res.json({
-      success: true,
-      message: 'Password updated'
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+export const getFavorites = asyncHandler(async (req, res) => {
+  const { itemType } = req.query;
+  const favorites = await usersService.getFavorites(req.user._id, itemType);
+  res.json({ success: true, data: { favorites } });
+});
+
+export const addFavorite = asyncHandler(async (req, res) => {
+  const { itemType, itemId } = req.body;
+
+  if (!itemType || !itemId) {
+    throw badRequest('itemType and itemId are required');
   }
-}
 
-/**
- * GET /api/users/ai-config
- */
-export async function getAIConfig(req, res) {
-  try {
-    const aiConfig = await usersService.getAIConfig(req.user._id);
-    res.json({
-      success: true,
-      data: { aiConfig }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  const validTypes = ['question', 'navigation', 'affiliate'];
+  if (!validTypes.includes(itemType)) {
+    throw badRequest('Invalid itemType. Must be question, navigation, or affiliate');
   }
-}
 
-/**
- * POST /api/users/ai-config/models
- */
-export async function getAIModels(req, res) {
-  try {
-    const { baseUrl, apiKey } = req.body;
-    const models = await usersService.fetchAIModels(req.user._id, { baseUrl, apiKey });
-    res.json({
-      success: true,
-      data: { models }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  const favorite = await usersService.addFavorite(req.user._id, itemType, itemId);
+  res.status(201).json({ success: true, data: { favorite } });
+});
+
+export const removeFavorite = asyncHandler(async (req, res) => {
+  const { itemType, itemId } = req.params;
+  await usersService.removeFavorite(req.user._id, itemType, itemId);
+  res.json({ success: true, message: 'Favorite removed' });
+});
+
+export const getNotifications = asyncHandler(async (req, res) => {
+  const notifications = await usersService.getNotifications(req.user._id);
+  res.json({ success: true, data: { notifications } });
+});
+
+export const getMySubmissions = asyncHandler(async (req, res) => {
+  const result = await usersService.getMySubmissions(req.user._id);
+  res.json({ success: true, data: result });
+});
+
+export const getSiteStats = asyncHandler(async (req, res) => {
+  const stats = await usersService.getSiteStats();
+  res.json({ success: true, data: stats });
+});
+
+export const getStats = asyncHandler(async (req, res) => {
+  const stats = await usersService.getUserStats(req.user._id);
+  res.json({ success: true, data: stats });
+});
+
+export const sendEmailVerification = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    throw badRequest('请提供邮箱地址');
   }
-}
-
-/**
- * PUT /api/users/ai-config
- */
-export async function updateAIConfig(req, res) {
-  try {
-    const { baseUrl, apiKey, model, enabled } = req.body;
-    const aiConfig = await usersService.updateAIConfig(req.user._id, {
-      baseUrl,
-      apiKey,
-      model,
-      enabled
-    });
-    res.json({
-      success: true,
-      data: { aiConfig }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  if (!EMAIL_REGEX.test(email)) {
+    throw badRequest('邮箱格式不正确');
   }
-}
+  await usersService.sendEmailVerification(req.user._id, email);
+  res.json({ success: true, message: '验证邮件已发送，请查收' });
+});
 
-/**
- * GET /api/users/favorites
- */
-export async function getFavorites(req, res) {
-  try {
-    const { itemType } = req.query;
-    const favorites = await usersService.getFavorites(req.user._id, itemType);
-    res.json({
-      success: true,
-      data: { favorites }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+export const verifyEmail = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    throw badRequest('请提供验证令牌');
   }
-}
-
-/**
- * POST /api/users/favorites
- */
-export async function addFavorite(req, res) {
-  try {
-    const { itemType, itemId } = req.body;
-
-    if (!itemType || !itemId) {
-      return res.status(400).json({
-        success: false,
-        error: 'itemType and itemId are required'
-      });
-    }
-
-    const validTypes = ['question', 'navigation', 'affiliate'];
-    if (!validTypes.includes(itemType)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid itemType. Must be question, navigation, or affiliate'
-      });
-    }
-
-    const favorite = await usersService.addFavorite(req.user._id, itemType, itemId);
-    res.status(201).json({
-      success: true,
-      data: { favorite }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
-  }
-}
-
-/**
- * DELETE /api/users/favorites/:itemType/:itemId
- */
-export async function removeFavorite(req, res) {
-  try {
-    const { itemType, itemId } = req.params;
-    await usersService.removeFavorite(req.user._id, itemType, itemId);
-    res.json({
-      success: true,
-      message: 'Favorite removed'
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
-  }
-}
-
-/**
- * GET /api/users/notifications
- */
-export async function getNotifications(req, res) {
-  try {
-    const notifications = await usersService.getNotifications(req.user._id);
-    res.json({
-      success: true,
-      data: { notifications }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
-  }
-}
-
-/**
- * GET /api/users/my-submissions
- */
-export async function getMySubmissions(req, res) {
-  try {
-    const result = await usersService.getMySubmissions(req.user._id);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-/**
- * GET /api/users/site-stats (public)
- */
-export async function getSiteStats(req, res) {
-  try {
-    const stats = await usersService.getSiteStats();
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-/**
- * GET /api/users/stats
- */
-export async function getStats(req, res) {
-  try {
-    const stats = await usersService.getUserStats(req.user._id);
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-}
-
-/**
- * POST /api/users/email/bind - 发送邮箱绑定验证码
- */
-export async function sendEmailVerification(req, res) {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ success: false, error: '请提供邮箱地址' });
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, error: '邮箱格式不正确' });
-    }
-    await usersService.sendEmailVerification(req.user._id, email);
-    res.json({ success: true, message: '验证邮件已发送，请查收' });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
-
-/**
- * POST /api/users/email/verify - 验证邮箱
- */
-export async function verifyEmail(req, res) {
-  try {
-    const { token } = req.body;
-    if (!token) {
-      return res.status(400).json({ success: false, error: '请提供验证令牌' });
-    }
-    const user = await usersService.verifyEmail(req.user._id, token);
-    res.json({ success: true, message: '邮箱验证成功', data: { email: user.email, emailVerified: user.emailVerified } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+  const user = await usersService.verifyEmail(req.user._id, token);
+  res.json({
+    success: true,
+    message: '邮箱验证成功',
+    data: { email: user.email, emailVerified: user.emailVerified },
+  });
+});

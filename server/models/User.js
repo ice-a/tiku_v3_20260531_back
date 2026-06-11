@@ -10,7 +10,9 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    lowercase: true,
+    trim: true
   },
   password: {
     type: String,
@@ -44,6 +46,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, trim: true, maxlength: 30, default: '' },
   bio: { type: String, trim: true, maxlength: 500, default: '' },
   socials: { type: mongoose.Schema.Types.Mixed, default: {} },
+  customSocial: { type: [{ name: { type: String, default: '' }, url: { type: String, default: '' } }], default: [] },
   aiConfig: {
     baseUrl: { type: String, default: '' },
     apiKey: { type: String, default: '' },
@@ -60,7 +63,19 @@ const userSchema = new mongoose.Schema({
   emailVerificationToken: { type: String, default: '' },
   emailVerificationExpire: { type: Date },
   resetPasswordToken: { type: String, default: '' },
-  resetPasswordExpire: { type: Date }
+  resetPasswordExpire: { type: Date },
+  tokenVersion: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
+  }
 }, {
   timestamps: true
 });
