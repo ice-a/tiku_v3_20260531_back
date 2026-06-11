@@ -4,6 +4,7 @@ import ChatHistory from '../models/ChatHistory.js';
 import User from '../models/User.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { badRequest, notFound } from '../utils/HttpError.js';
+import { consumeQuota } from '../middleware/quota.js';
 
 export const chat = asyncHandler(async (req, res) => {
   const { message, type = 'career', history = [] } = req.body;
@@ -24,6 +25,9 @@ export const chat = asyncHandler(async (req, res) => {
     userMessage: result.userMessage,
     assistantMessage: result.assistantMessage,
   });
+
+  consumeQuota(req, user);
+  await user.save();
 
   res.json({ success: true, data: { response: result.response } });
 });

@@ -8,6 +8,9 @@ import Favorite from './Favorite.js';
 import ChatHistory from './ChatHistory.js';
 import CareerPost from './CareerPost.js';
 import Comment from './Comment.js';
+import Order from './Order.js';
+import Ad from './Ad.js';
+import Donation from './Donation.js';
 
 export {
   User,
@@ -19,5 +22,8 @@ export {
   Favorite,
   ChatHistory,
   CareerPost,
-  Comment
+  Comment,
+  Order,
+  Ad,
+  Donation,
 };

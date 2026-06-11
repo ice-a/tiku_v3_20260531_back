@@ -75,6 +75,9 @@ import toolRoutes from './routes/tools.js';
 import adminRoutes from './routes/admin.js';
 import miniprogramRoutes from './routes/miniprogram.js';
 import hitokotoRoutes from './routes/hitokoto.js';
+import membershipRoutes from './routes/membership.js';
+import adsRoutes from './routes/ads.js';
+import donationsRoutes from './routes/donations.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/questions', questionRoutes);
@@ -86,6 +89,9 @@ app.use('/api/tools', toolRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mp', miniprogramRoutes);
 app.use('/api/hitokoto', hitokotoRoutes);
+app.use('/api/membership', membershipRoutes);
+app.use('/api/ads', adsRoutes);
+app.use('/api/donations', donationsRoutes);
 
 // 健康检查
 app.get('/api/health', (req, res) => {

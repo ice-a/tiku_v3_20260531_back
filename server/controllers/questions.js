@@ -1,6 +1,7 @@
 import * as questionsService from '../services/questions.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { badRequest } from '../utils/HttpError.js';
+import { consumeQuota } from '../middleware/quota.js';
 
 export const getList = asyncHandler(async (req, res) => {
   const result = await questionsService.getList(req.query);
@@ -76,6 +77,8 @@ export const practice = asyncHandler(async (req, res) => {
     throw badRequest('请提供答案');
   }
   const result = await questionsService.practice(req.params.id, req.user._id, userAnswer);
+  consumeQuota(req, req.user);
+  await req.user.save();
   res.json({ success: true, data: result });
 });
 
@@ -96,6 +99,8 @@ export const aiScore = asyncHandler(async (req, res) => {
     userAnswer,
     user.aiConfig
   );
+  consumeQuota(req, user);
+  await user.save();
   res.json({ success: true, data: result });
 });
 
@@ -106,6 +111,8 @@ export const aiAnswer = asyncHandler(async (req, res) => {
   }
 
   const result = await questionsService.aiGenerateAnswer(req.params.id, user.aiConfig);
+  consumeQuota(req, user);
+  await user.save();
   res.json({ success: true, data: result });
 });
 

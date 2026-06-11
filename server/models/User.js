@@ -75,7 +75,21 @@ const userSchema = new mongoose.Schema({
   },
   lockUntil: {
     type: Date
-  }
+  },
+  membership: {
+    plan: { type: String, enum: ['free', 'pro', 'enterprise'], default: 'free' },
+    expiresAt: { type: Date },
+  },
+  quota: {
+    practiceUsed: { type: Number, default: 0 },
+    practiceDate: { type: String, default: '' },
+    aiScoreUsed: { type: Number, default: 0 },
+    aiScoreDate: { type: String, default: '' },
+    aiAnswerUsed: { type: Number, default: 0 },
+    aiAnswerDate: { type: String, default: '' },
+    careerChatUsed: { type: Number, default: 0 },
+    careerChatDate: { type: String, default: '' },
+  },
 }, {
   timestamps: true
 });
@@ -102,6 +116,17 @@ userSchema.methods.toJSON = function() {
   const obj = this.toObject();
   delete obj.password;
   return obj;
+};
+
+userSchema.methods.isMemberActive = function() {
+  if (this.membership.plan === 'free') return false;
+  if (!this.membership.expiresAt) return true;
+  return this.membership.expiresAt > new Date();
+};
+
+userSchema.methods.getEffectivePlan = function() {
+  if (this.isMemberActive()) return this.membership.plan;
+  return 'free';
 };
 
 const User = mongoose.model('User', userSchema);

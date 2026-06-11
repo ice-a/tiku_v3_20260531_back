@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { auth, requireRole } from '../middleware/auth.js';
+import { checkQuota } from '../middleware/quota.js';
 import upload from '../middleware/upload.js';
 import * as questionsController from '../controllers/questions.js';
 
@@ -33,13 +34,13 @@ router.post('/:id/approve', auth, requireRole('admin'), questionsController.appr
 router.post('/:id/reject', auth, requireRole('admin'), questionsController.reject);
 
 // POST /api/questions/:id/practice - 练习答题（需要认证）
-router.post('/:id/practice', auth, questionsController.practice);
+router.post('/:id/practice', auth, checkQuota('practice'), questionsController.practice);
 
 // POST /api/questions/:id/ai-score - AI 评分（需要认证）
-router.post('/:id/ai-score', auth, questionsController.aiScore);
+router.post('/:id/ai-score', auth, checkQuota('aiScore'), questionsController.aiScore);
 
 // POST /api/questions/:id/ai-answer - AI 生成答案（需要认证）
-router.post('/:id/ai-answer', auth, questionsController.aiAnswer);
+router.post('/:id/ai-answer', auth, checkQuota('aiAnswer'), questionsController.aiAnswer);
 
 // POST /api/questions/:id/answer-pool - 提交答案到答案池（需要认证）
 router.post('/:id/answer-pool', auth, questionsController.submitToAnswerPool);

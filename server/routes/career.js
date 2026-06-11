@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { auth, requireRole } from '../middleware/auth.js';
+import { checkQuota } from '../middleware/quota.js';
 import * as careerController from '../controllers/career.js';
 
 const router = Router();
 
 // AI 对话（需登录 + AI 配置）
-router.post('/chat', auth, careerController.chat);
+router.post('/chat', auth, checkQuota('careerChat'), careerController.chat);
 
 // 对话历史
 router.get('/history', auth, careerController.getHistoryList);

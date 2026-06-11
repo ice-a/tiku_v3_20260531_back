@@ -273,23 +273,23 @@ describe('T0.6 questions: authed writes + practice + answer pool + feedback', ()
     expect(res.body.data.feedback.content).toBe('Good Q');
   });
 
-  it('ai-score requires 400 when AI is not enabled', async () => {
+  it('ai-score requires 403 when quota exceeded (free user)', async () => {
     const q = await makeQuestion({});
     const res = await request(app)
       .post(`/api/questions/${q._id}/ai-score`)
       .set(auth(user.accessToken))
       .send({ userAnswer: 'my answer' });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/AI/);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/AI|配额|次数/);
   });
 
-  it('ai-answer requires 400 when AI is not enabled', async () => {
+  it('ai-answer requires 403 when quota exceeded (free user)', async () => {
     const q = await makeQuestion({});
     const res = await request(app)
       .post(`/api/questions/${q._id}/ai-answer`)
       .set(auth(user.accessToken));
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/AI/);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/AI|配额|次数/);
   });
 });
 
