@@ -1,6 +1,6 @@
 import { callChatCompletions } from './aiClient.js';
+import { badRequest } from '../utils/HttpError.js';
 
-// System prompts for different career types
 const SYSTEM_PROMPTS = {
   interview: `你是一位专业的面试辅导顾问。当用户开始对话时，先友好地问候，然后根据用户描述的具体情况给出针对性建议。
 回答时使用 markdown 格式，包括：
@@ -30,7 +30,6 @@ const SYSTEM_PROMPTS = {
 不要一开始就列出所有功能，而是根据用户的实际困惑给出精准、实用的回答。`
 };
 
-// 预置资源数据
 const PRESET_RESOURCES = {
   interview: [
     {
@@ -158,7 +157,6 @@ const PRESET_RESOURCES = {
   ]
 };
 
-// 执行 AI 调用
 export const callAI = async (aiConfig, message, history, type) => {
   const systemPrompt = SYSTEM_PROMPTS[type] || SYSTEM_PROMPTS.career;
 
@@ -181,16 +179,14 @@ export const callAI = async (aiConfig, message, history, type) => {
       assistantMessage: { role: 'assistant', content }
     };
   } catch (err) {
-    throw Object.assign(new Error('AI API request failed: ' + err.message), { status: err.status || 502 });
+    throw badRequest('AI API request failed: ' + err.message);
   }
 };
 
-// 获取资源列表
 export const getResources = (type) => {
   if (type && PRESET_RESOURCES[type]) {
     return PRESET_RESOURCES[type];
   }
-  // 如果未指定 type 或 type 无效，返回所有资源
   if (!type) {
     return PRESET_RESOURCES;
   }

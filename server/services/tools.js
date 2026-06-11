@@ -3,13 +3,8 @@ import sharp from 'sharp';
 import * as prettier from 'prettier';
 import { format as sqlFormat } from 'sql-formatter';
 import jwt from 'jsonwebtoken';
+import { badRequest } from '../utils/HttpError.js';
 
-/**
- * Process image: resize and convert format
- * @param {Buffer} input - source image buffer
- * @param {Object} options - { width, height, format }
- * @returns {Buffer} processed image buffer
- */
 export async function processImage(input, options = {}) {
   const { width, height, format } = options;
 
@@ -23,19 +18,13 @@ export async function processImage(input, options = {}) {
     png: 'png',
     jpeg: 'jpeg',
     webp: 'webp',
-    gif: 'png', // sharp 不支持 gif 输出，降级为 png
+    gif: 'png',
   };
   const outputFormat = formatMap[format] || 'png';
 
   return pipeline.toFormat(outputFormat).toBuffer();
 }
 
-/**
- * Format text with given type
- * @param {string} text
- * @param {string} type - uppercase|lowercase|capitalize|trim|reverse
- * @returns {string}
- */
 export function formatText(text, type) {
   switch (type) {
     case 'uppercase':
@@ -48,77 +37,40 @@ export function formatText(text, type) {
       return text.trim();
     case 'reverse':
       return [...text].reverse().join('');
-    default: {
-      const error = new Error('Invalid format type. Use: uppercase, lowercase, capitalize, trim, reverse');
-      error.statusCode = 400;
-      throw error;
-    }
+    default:
+      throw badRequest('Invalid format type. Use: uppercase, lowercase, capitalize, trim, reverse');
   }
 }
 
-/**
- * Generate hash from text
- * @param {string} text
- * @param {string} algorithm - md5|sha1|sha256
- * @returns {string}
- */
 export function generateHash(text, algorithm = 'sha256') {
   const supported = ['md5', 'sha1', 'sha256'];
   if (!supported.includes(algorithm)) {
-    const error = new Error('Invalid algorithm. Use: md5, sha1, sha256');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid algorithm. Use: md5, sha1, sha256');
   }
   return crypto.createHash(algorithm).update(text, 'utf8').digest('hex');
 }
 
-/**
- * Encode text to Base64
- * @param {string} text
- * @returns {string}
- */
 export function encodeBase64(text) {
   return Buffer.from(text, 'utf8').toString('base64');
 }
 
-/**
- * Decode Base64 to text
- * @param {string} encoded
- * @returns {string}
- */
 export function decodeBase64(encoded) {
   try {
     return Buffer.from(encoded, 'base64').toString('utf8');
   } catch {
-    const error = new Error('Invalid Base64 string');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid Base64 string');
   }
 }
 
-/**
- * Format JSON string
- * @param {string} text
- * @param {number} indent - spaces (default 2)
- * @returns {string}
- */
 export function formatJSON(text, indent = 2) {
   try {
     const parsed = JSON.parse(text);
     return JSON.stringify(parsed, null, indent);
   } catch {
-    const error = new Error('Invalid JSON');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid JSON');
   }
 }
 
-/**
- * Format XML string with indentation
- * @param {string} text
- * @param {number} indent - spaces (default 2)
- * @returns {string}
- */
 export function formatXML(text, indent = 2) {
   const trimmed = text.trim();
   if (!trimmed) return '';
@@ -127,28 +79,22 @@ export function formatXML(text, indent = 2) {
   let formatted = '';
   let level = 0;
 
-  // Split into tags and text content
   const tokens = trimmed.replace(/>\s+</g, '><').split(/(<[^>]+>)/);
 
   for (const token of tokens) {
     if (!token.trim()) continue;
 
     if (token.startsWith('</')) {
-      // Closing tag - decrease indent
       level = Math.max(0, level - 1);
       formatted += pad.repeat(level) + token.trim() + '\n';
     } else if (token.startsWith('<?')) {
-      // XML declaration
       formatted += token.trim() + '\n';
     } else if (token.startsWith('<')) {
-      // Opening tag
       formatted += pad.repeat(level) + token.trim() + '\n';
-      // Check if it's self-closing
       if (!token.endsWith('/>')) {
         level++;
       }
     } else {
-      // Text content
       const textContent = token.trim();
       if (textContent) {
         formatted += pad.repeat(level) + textContent + '\n';
@@ -159,22 +105,10 @@ export function formatXML(text, indent = 2) {
   return formatted.trimEnd();
 }
 
-/**
- * Format HTML string with indentation
- * @param {string} text
- * @param {number} indent - spaces (default 2)
- * @returns {string}
- */
 export function formatHTML(text, indent = 2) {
-  // HTML formatting reuses the same logic as XML
   return formatXML(text, indent);
 }
 
-/**
- * Generate a random User-Agent string
- * @param {Object} options - { browser, os }
- * @returns {string}
- */
 export function generateUA(options = {}) {
   const { browser, os } = options;
 
@@ -229,100 +163,60 @@ export function generateUA(options = {}) {
   return picked.gen();
 }
 
-/**
- * Convert image format
- * @param {Buffer} input - source image buffer
- * @param {string} targetFormat - png|jpeg|webp
- * @returns {Buffer} converted image buffer
- */
 export async function convertImageFormat(input, targetFormat = 'png') {
   const supported = ['png', 'jpeg', 'webp'];
   if (!supported.includes(targetFormat)) {
-    const error = new Error('Unsupported format. Use: png, jpeg, webp');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Unsupported format. Use: png, jpeg, webp');
   }
   return sharp(input).toFormat(targetFormat).toBuffer();
 }
 
-/**
- * Convert image to ICO format
- * @param {Buffer} input - source image buffer
- * @param {number} size - icon size (16|32|48|64|128|256)
- * @returns {Buffer} ICO file buffer
- */
 export async function imageToIco(input, size = 256) {
   const validSizes = [16, 32, 48, 64, 128, 256];
   if (!validSizes.includes(size)) {
-    const error = new Error('Invalid size. Use: 16, 32, 48, 64, 128, 256');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid size. Use: 16, 32, 48, 64, 128, 256');
   }
 
-  // Generate PNG at the target size
   const pngBuffer = await sharp(input)
     .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
-  // Construct ICO binary format
-  // ICO Header: 6 bytes
   const header = Buffer.alloc(6);
-  header.writeUInt16LE(0, 0);      // reserved
-  header.writeUInt16LE(1, 2);      // type: 1 = ICO
-  header.writeUInt16LE(1, 4);      // number of images
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
 
-  // ICO Directory Entry: 16 bytes
   const entry = Buffer.alloc(16);
-  entry.writeUInt8(size >= 256 ? 0 : size, 0);   // width (0 means 256)
-  entry.writeUInt8(size >= 256 ? 0 : size, 1);   // height
-  entry.writeUInt8(0, 2);                         // color palette
-  entry.writeUInt8(0, 3);                         // reserved
-  entry.writeUInt16LE(1, 4);                      // color planes
-  entry.writeUInt16LE(32, 6);                     // bits per pixel
-  entry.writeUInt32LE(pngBuffer.length, 8);       // image data size
-  entry.writeUInt32LE(22, 12);                    // offset (6 + 16 = 22)
+  entry.writeUInt8(size >= 256 ? 0 : size, 0);
+  entry.writeUInt8(size >= 256 ? 0 : size, 1);
+  entry.writeUInt8(0, 2);
+  entry.writeUInt8(0, 3);
+  entry.writeUInt16LE(1, 4);
+  entry.writeUInt16LE(32, 6);
+  entry.writeUInt32LE(pngBuffer.length, 8);
+  entry.writeUInt32LE(22, 12);
 
   return Buffer.concat([header, entry, pngBuffer]);
 }
 
-/**
- * Encode text for URL
- * @param {string} text
- * @returns {string}
- */
 export function encodeURL(text) {
   return encodeURIComponent(text);
 }
 
-/**
- * Decode URL-encoded text
- * @param {string} encoded
- * @returns {string}
- */
 export function decodeURL(encoded) {
   try {
     return decodeURIComponent(encoded);
   } catch {
-    const error = new Error('Invalid URL-encoded string');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid URL-encoded string');
   }
 }
 
-/**
- * Convert between timestamp and date
- * @param {string|number} input - timestamp or date string
- * @param {string} direction - 'toTimestamp' or 'toDate'
- * @returns {Object} { timestamp, date, iso }
- */
 export function convertTimestamp(input, direction) {
   if (direction === 'toTimestamp') {
     const date = new Date(input);
     if (isNaN(date.getTime())) {
-      const error = new Error('Invalid date string');
-      error.statusCode = 400;
-      throw error;
+      throw badRequest('Invalid date string');
     }
     return {
       timestamp: Math.floor(date.getTime() / 1000),
@@ -335,11 +229,8 @@ export function convertTimestamp(input, direction) {
   if (direction === 'toDate') {
     let ts = Number(input);
     if (isNaN(ts)) {
-      const error = new Error('Invalid timestamp');
-      error.statusCode = 400;
-      throw error;
+      throw badRequest('Invalid timestamp');
     }
-    // Auto-detect seconds vs milliseconds (>1e12 means ms)
     if (ts < 1e12) ts = ts * 1000;
     const date = new Date(ts);
     return {
@@ -350,31 +241,19 @@ export function convertTimestamp(input, direction) {
     };
   }
 
-  const error = new Error('Invalid direction. Use: toTimestamp, toDate');
-  error.statusCode = 400;
-  throw error;
+  throw badRequest('Invalid direction. Use: toTimestamp, toDate');
 }
 
-/**
- * Test regex pattern against a string
- * @param {string} pattern - regex pattern
- * @param {string} testString
- * @param {string} flags - regex flags (e.g. 'gi')
- * @returns {Object} { matches, isMatch, details }
- */
 export function testRegex(pattern, testString, flags = '') {
   let regex;
   try {
     regex = new RegExp(pattern, flags);
   } catch {
-    const error = new Error('Invalid regex pattern');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Invalid regex pattern');
   }
 
   const isMatch = regex.test(testString);
 
-  // Reset lastIndex for global flag
   regex.lastIndex = 0;
 
   const matches = [];
@@ -386,7 +265,6 @@ export function testRegex(pattern, testString, flags = '') {
         index: match.index,
         groups: match.slice(1),
       });
-      // Prevent infinite loop on zero-length matches
       if (match[0].length === 0) {
         regex.lastIndex++;
       }
@@ -414,15 +292,6 @@ export function testRegex(pattern, testString, flags = '') {
   };
 }
 
-// ============ Code Formatting (F5) ============
-
-/**
- * Format code with given language
- * @param {string} language - js|sql|python|java
- * @param {string} text - source code
- * @param {number} indent - spaces (default 2)
- * @returns {Promise<string>}
- */
 export async function formatCode(language, text, indent = 2) {
   switch (language) {
     case 'js':
@@ -433,20 +302,11 @@ export async function formatCode(language, text, indent = 2) {
     case 'python':
     case 'java':
       return simpleIndentFormat(text, indent);
-    default: {
-      const error = new Error('Unsupported language. Use: js, sql, python, java');
-      error.statusCode = 400;
-      throw error;
-    }
+    default:
+      throw badRequest('Unsupported language. Use: js, sql, python, java');
   }
 }
 
-/**
- * Simple indentation formatter for Python/Java
- * @param {string} text
- * @param {number} indent
- * @returns {string}
- */
 function simpleIndentFormat(text, indent = 2) {
   const lines = text.split('\n');
   const result = [];
@@ -457,14 +317,12 @@ function simpleIndentFormat(text, indent = 2) {
     const trimmed = line.trim();
     if (!trimmed) { result.push(''); continue; }
 
-    // Decrease indent for closing brackets/keywords
     if (/^[}\])]/.test(trimmed) || /^(elif |else:|except |finally:|case )/.test(trimmed)) {
       level = Math.max(0, level - 1);
     }
 
     result.push(pad.repeat(level) + trimmed);
 
-    // Increase indent for opening brackets/keywords
     if (/[{(\[]\s*$/.test(trimmed) || /:\s*$/.test(trimmed)) {
       level++;
     }
@@ -472,35 +330,15 @@ function simpleIndentFormat(text, indent = 2) {
   return result.join('\n');
 }
 
-// ============ Generator Tools (F7) ============
-
-/**
- * Generate JWT token
- * @param {Object} payload
- * @param {string} secret
- * @param {Object} options - { expiresIn, algorithm }
- * @returns {string}
- */
 export function generateJWT(payload, secret, options = {}) {
   const { expiresIn = '1h', algorithm = 'HS256' } = options;
   return jwt.sign(payload, secret, { expiresIn, algorithm });
 }
 
-/**
- * Decode JWT token without verification
- * @param {string} token
- * @returns {Object|null}
- */
 export function decodeJWT(token) {
   return jwt.decode(token, { complete: true });
 }
 
-/**
- * Generate random password
- * @param {number} length
- * @param {Object} options - { uppercase, lowercase, numbers, symbols }
- * @returns {string}
- */
 export function generatePassword(length = 16, options = {}) {
   const { uppercase = true, lowercase = true, numbers = true, symbols = true } = options;
   let chars = '';
@@ -518,11 +356,6 @@ export function generatePassword(length = 16, options = {}) {
   return result;
 }
 
-/**
- * Generate UUIDs
- * @param {number} count
- * @returns {string[]}
- */
 export function generateUUIDs(count = 1) {
   const uuids = [];
   for (let i = 0; i < Math.min(count, 100); i++) {

@@ -1,153 +1,146 @@
+import * as careerPostsService from '../services/careerPosts.js';
 import * as careerService from '../services/career.js';
 import ChatHistory from '../models/ChatHistory.js';
+import User from '../models/User.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { badRequest, notFound } from '../utils/HttpError.js';
 
-const MAX_MESSAGES = 100;
-
-// POST /api/career/chat - AI 对话
-export const chat = async (req, res) => {
-  try {
-    const { message, historyId, type } = req.body;
-
-    // 验证必填字段
-    if (!message) {
-      return res.status(400).json({ success: false, message: '请提供消息内容' });
-    }
-
-    // 验证 type 参数
-    const validTypes = ['interview', 'resume', 'career'];
-    const chatType = validTypes.includes(type) ? type : 'career';
-
-    // 检查用户是否配置了 AI
-    const user = req.user;
-    if (!user.aiConfig || !user.aiConfig.enabled) {
-      return res.status(403).json({ success: false, message: '请先在个人设置中配置 AI 功能' });
-    }
-
-    if (!user.aiConfig.baseUrl || !user.aiConfig.apiKey) {
-      return res.status(403).json({ success: false, message: 'AI 配置不完整，请检查 baseUrl 和 apiKey' });
-    }
-
-    // 加载或创建对话历史
-    let chatHistory = null;
-    let historyMessages = [];
-
-    if (historyId) {
-      chatHistory = await ChatHistory.findOne({ _id: historyId, userId: user._id });
-      if (!chatHistory) {
-        return res.status(404).json({ success: false, message: '对话不存在' });
-      }
-      historyMessages = chatHistory.messages.map(m => ({ role: m.role, content: m.content }));
-    }
-
-    const result = await careerService.callAI(user.aiConfig, message, historyMessages, chatType);
-
-    // 保存消息到历史
-    if (!chatHistory) {
-      // 新建对话，用用户消息前 20 个字符作为标题
-      const title = message.length > 20 ? message.slice(0, 20) + '...' : message;
-      chatHistory = new ChatHistory({
-        userId: user._id,
-        type: chatType,
-        title,
-        messages: [],
-        lastMessageAt: new Date()
-      });
-    }
-
-    chatHistory.messages.push(result.userMessage);
-    chatHistory.messages.push(result.assistantMessage);
-    chatHistory.lastMessageAt = new Date();
-
-    // 限制消息数为 MAX_MESSAGES
-    if (chatHistory.messages.length > MAX_MESSAGES) {
-      chatHistory.messages = chatHistory.messages.slice(-MAX_MESSAGES);
-    }
-
-    await chatHistory.save();
-
-    res.json({
-      success: true,
-      data: {
-        response: result.response,
-        historyId: chatHistory._id
-      }
-    });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
+export const chat = asyncHandler(async (req, res) => {
+  const { message, type = 'career', history = [] } = req.body;
+  if (!message) {
+    throw badRequest('请提供消息内容');
   }
-};
 
-// GET /api/career/history - 获取对话列表
-export const getHistoryList = async (req, res) => {
-  try {
-    const { type, page = 1, limit = 20 } = req.query;
-    const userId = req.user._id;
-    const query = { userId };
-    if (type && ['interview', 'resume', 'career'].includes(type)) {
-      query.type = type;
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-    const [list, total] = await Promise.all([
-      ChatHistory.find(query)
-        .sort({ lastMessageAt: -1 })
-        .skip(skip)
-        .limit(Number(limit))
-        .select('title type lastMessageAt createdAt updatedAt')
-        .lean(),
-      ChatHistory.countDocuments(query)
-    ]);
-
-    res.json({
-      success: true,
-      data: { list, total, page: Number(page), limit: Number(limit) }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  const user = await User.findById(req.user._id);
+  if (!user || !user.aiConfig || !user.aiConfig.enabled) {
+    throw badRequest('请先配置 AI 功能');
   }
-};
 
-// GET /api/career/history/:id - 获取对话详情
-export const getHistoryById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user._id;
+  const result = await careerService.callAI(user.aiConfig, message, history, type);
 
-    const chatHistory = await ChatHistory.findOne({ _id: id, userId }).lean();
-    if (!chatHistory) {
-      return res.status(404).json({ success: false, message: '对话不存在' });
-    }
+  await ChatHistory.create({
+    userId: req.user._id,
+    type,
+    userMessage: result.userMessage,
+    assistantMessage: result.assistantMessage,
+  });
 
-    res.json({ success: true, data: chatHistory });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  res.json({ success: true, data: { response: result.response } });
+});
+
+export const getHistoryList = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const pageNum = Math.max(1, parseInt(page, 10));
+  const limitNum = Math.max(1, Math.min(50, parseInt(limit, 10)));
+  const skip = (pageNum - 1) * limitNum;
+
+  const [items, total] = await Promise.all([
+    ChatHistory.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .select('type createdAt')
+      .lean(),
+    ChatHistory.countDocuments({ userId: req.user._id }),
+  ]);
+
+  res.json({ success: true, data: { items, total, page: pageNum, limit: limitNum } });
+});
+
+export const getHistoryById = asyncHandler(async (req, res) => {
+  const history = await ChatHistory.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  }).lean();
+
+  if (!history) {
+    throw notFound('对话记录不存在');
   }
-};
 
-// DELETE /api/career/history/:id - 删除对话
-export const deleteHistory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user._id;
+  res.json({ success: true, data: { history } });
+});
 
-    const result = await ChatHistory.deleteOne({ _id: id, userId });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: '对话不存在' });
-    }
+export const deleteHistory = asyncHandler(async (req, res) => {
+  const result = await ChatHistory.findOneAndDelete({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
 
-    res.json({ success: true, message: '已删除' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (!result) {
+    throw notFound('对话记录不存在');
   }
-};
 
-// GET /api/career/resources - 获取资源列表
-export const getResources = async (req, res) => {
-  try {
-    const { type } = req.query;
-    const resources = careerService.getResources(type);
-    res.json({ success: true, data: { resources } });
-  } catch (err) {
-    res.status(err.status || 500).json({ success: false, error: err.message });
-  }
-};
+  res.json({ success: true, message: '对话已删除' });
+});
+
+export const getResources = asyncHandler(async (req, res) => {
+  const { type } = req.query;
+  const resources = careerService.getResources(type);
+  res.json({ success: true, data: { resources } });
+});
+
+export const getPosts = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.getPosts(req.query);
+  res.json({ success: true, data: result });
+});
+
+export const getPostById = asyncHandler(async (req, res) => {
+  const post = await careerPostsService.getPostById(req.params.id, { incrementView: true });
+  res.json({ success: true, data: { post } });
+});
+
+export const createPost = asyncHandler(async (req, res) => {
+  const post = await careerPostsService.createPost(req.body, req.user);
+  res.status(201).json({ success: true, data: { post } });
+});
+
+export const updatePost = asyncHandler(async (req, res) => {
+  const post = await careerPostsService.updatePost(req.params.id, req.body, req.user);
+  res.json({ success: true, data: { post } });
+});
+
+export const deletePost = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.deletePost(req.params.id, req.user);
+  res.json({ success: true, ...result });
+});
+
+export const likePost = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.likePost(req.params.id);
+  res.json({ success: true, data: result });
+});
+
+export const unlikePost = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.unlikePost(req.params.id);
+  res.json({ success: true, data: result });
+});
+
+export const favoritePost = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.favoritePost(req.params.id, req.user._id);
+  res.status(201).json({ success: true, data: result });
+});
+
+export const unfavoritePost = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.unfavoritePost(req.params.id, req.user._id);
+  res.json({ success: true, data: result });
+});
+
+export const addComment = asyncHandler(async (req, res) => {
+  const { content, parentId } = req.body;
+  const comment = await careerPostsService.addComment(req.params.id, req.user._id, content, parentId);
+  res.status(201).json({ success: true, data: { comment } });
+});
+
+export const getComments = asyncHandler(async (req, res) => {
+  const result = await careerPostsService.getComments(req.params.id, req.query);
+  res.json({ success: true, data: result });
+});
+
+export const checkAndUpdateQuestionRelation = asyncHandler(async (req, res) => {
+  const { questionId } = req.params;
+  const post = await careerPostsService.checkAndUpdateQuestionRelation(
+    req.params.id,
+    questionId,
+    req.body
+  );
+  res.json({ success: true, data: { post } });
+});

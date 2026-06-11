@@ -30,10 +30,21 @@ const navigationSchema = new Schema({
   uploadedBy: {
     type: Schema.Types.ObjectId,
     ref: 'User'
+  },
+  stats: {
+    views: { type: Number, default: 0 },
+    likes: { type: Number, default: 0 }
+  },
+  order: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true
 });
+
+navigationSchema.index({ category: 1, order: 1 });
+navigationSchema.index({ tags: 1 });
 
 const Navigation = mongoose.model('Navigation', navigationSchema);
 

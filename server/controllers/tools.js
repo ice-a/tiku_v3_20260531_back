@@ -1,491 +1,182 @@
 import * as toolsService from '../services/tools.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { badRequest } from '../utils/HttpError.js';
 
-/**
- * POST /api/tools/image/process
- * Multipart form: image file + width, height, format fields
- */
-export async function imageProcess(req, res) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'Image file is required',
-      });
-    }
-
-    const { width, height, format } = req.body;
-    const options = {};
-
-    if (width) options.width = parseInt(width, 10);
-    if (height) options.height = parseInt(height, 10);
-    if (format) options.format = format;
-
-    const buffer = await toolsService.processImage(req.file.buffer, options);
-
-    const mimeMap = {
-      png: 'image/png',
-      jpeg: 'image/jpeg',
-      webp: 'image/webp',
-      gif: 'image/gif',
-    };
-    const mime = mimeMap[options.format || 'png'] || 'image/png';
-
-    res.set('Content-Type', mime);
-    res.send(buffer);
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const imageProcess = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw badRequest('请上传图片文件');
   }
-}
+  const options = req.body.options ? JSON.parse(req.body.options) : {};
+  const processedBuffer = await toolsService.processImage(req.file.buffer, options);
+  res.set('Content-Type', `image/${options.format || 'png'}`);
+  res.send(processedBuffer);
+});
 
-/**
- * POST /api/tools/text/format
- */
-export async function textFormat(req, res) {
-  try {
-    const { text, type } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    if (!type) {
-      return res.status(400).json({
-        success: false,
-        error: 'Format type is required',
-      });
-    }
-
-    const result = toolsService.formatText(text, type);
-
-    res.json({
-      success: true,
-      data: { result },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const imageConvert = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw badRequest('请上传图片文件');
   }
-}
+  const { targetFormat = 'png' } = req.body;
+  const processedBuffer = await toolsService.convertImageFormat(req.file.buffer, targetFormat);
+  res.set('Content-Type', `image/${targetFormat}`);
+  res.send(processedBuffer);
+});
 
-/**
- * POST /api/tools/hash/generate
- */
-export async function hashGenerate(req, res) {
-  try {
-    const { text, algorithm } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    const hash = toolsService.generateHash(text, algorithm);
-
-    res.json({
-      success: true,
-      data: { hash },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const imageToIco = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw badRequest('请上传图片文件');
   }
-}
+  const { size = 256 } = req.body;
+  const icoBuffer = await toolsService.imageToIco(req.file.buffer, Number(size));
+  res.set('Content-Type', 'image/x-icon');
+  res.send(icoBuffer);
+});
 
-/**
- * POST /api/tools/base64/encode
- */
-export async function base64Encode(req, res) {
-  try {
-    const { text } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    const encoded = toolsService.encodeBase64(text);
-
-    res.json({
-      success: true,
-      data: { encoded },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const textFormat = asyncHandler(async (req, res) => {
+  const { text, type } = req.body;
+  if (!text || !type) {
+    throw badRequest('请提供 text 和 type');
   }
-}
+  const result = toolsService.formatText(text, type);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/base64/decode
- */
-export async function base64Decode(req, res) {
-  try {
-    const { encoded } = req.body;
-
-    if (!encoded) {
-      return res.status(400).json({
-        success: false,
-        error: 'Encoded string is required',
-      });
-    }
-
-    const decoded = toolsService.decodeBase64(encoded);
-
-    res.json({
-      success: true,
-      data: { decoded },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const hashGenerate = asyncHandler(async (req, res) => {
+  const { text, algorithm = 'sha256' } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.generateHash(text, algorithm);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/format/json
- */
-export async function jsonFormat(req, res) {
-  try {
-    const { text, indent } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    const formatted = toolsService.formatJSON(text, indent);
-
-    res.json({
-      success: true,
-      data: { formatted },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const base64Encode = asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.encodeBase64(text);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/format/xml
- */
-export async function xmlFormat(req, res) {
-  try {
-    const { text, indent } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    const formatted = toolsService.formatXML(text, indent);
-
-    res.json({
-      success: true,
-      data: { formatted },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const base64Decode = asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.decodeBase64(text);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/format/html
- */
-export async function htmlFormat(req, res) {
-  try {
-    const { text, indent } = req.body;
-
-    if (text === undefined || text === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Text is required',
-      });
-    }
-
-    const formatted = toolsService.formatHTML(text, indent);
-
-    res.json({
-      success: true,
-      data: { formatted },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const jsonFormat = asyncHandler(async (req, res) => {
+  const { text, indent = 2 } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.formatJSON(text, Number(indent));
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * GET /api/tools/ua/generate
- * Query: browser, os, count
- */
-export async function uaGenerate(req, res) {
-  try {
-    const { browser, os, count = 1 } = req.query;
-    const options = {};
-    if (browser) options.browser = browser;
-    if (os) options.os = os;
-
-    const countNum = Math.min(parseInt(count, 10) || 1, 10);
-    const uuids = [];
-    for (let i = 0; i < countNum; i++) {
-      uuids.push(toolsService.generateUA(options));
-    }
-
-    res.json({
-      success: true,
-      data: countNum === 1 ? { ua: uuids[0] } : { ua: uuids },
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const xmlFormat = asyncHandler(async (req, res) => {
+  const { text, indent = 2 } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.formatXML(text, Number(indent));
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/regex/test
- */
-export async function regexTest(req, res) {
-  try {
-    const { pattern, testString, flags } = req.body;
-
-    if (!pattern) {
-      return res.status(400).json({
-        success: false,
-        error: 'Pattern is required',
-      });
-    }
-
-    if (testString === undefined || testString === null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Test string is required',
-      });
-    }
-
-    const result = toolsService.testRegex(pattern, testString, flags);
-
-    res.json({
-      success: true,
-      data: result,
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message,
-    });
+export const htmlFormat = asyncHandler(async (req, res) => {
+  const { text, indent = 2 } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.formatHTML(text, Number(indent));
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/image/convert
- */
-export async function imageConvert(req, res) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Image file is required' });
-    }
+export const uaGenerate = asyncHandler(async (req, res) => {
+  const result = toolsService.generateUA({
+    browser: req.query.browser,
+    os: req.query.os,
+  });
+  res.json({ success: true, data: { result } });
+});
 
-    const { format } = req.body;
-    const buffer = await toolsService.convertImageFormat(req.file.buffer, format);
-
-    const mimeMap = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
-    const mime = mimeMap[format || 'png'] || 'image/png';
-
-    res.set('Content-Type', mime);
-    res.send(buffer);
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
+export const regexTest = asyncHandler(async (req, res) => {
+  const { pattern, testString, flags = '' } = req.body;
+  if (!pattern || testString === undefined) {
+    throw badRequest('请提供 pattern 和 testString');
   }
-}
+  const result = toolsService.testRegex(pattern, testString, flags);
+  res.json({ success: true, data: result });
+});
 
-/**
- * POST /api/tools/image/to-ico
- */
-export async function imageToIco(req, res) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'Image file is required' });
-    }
-
-    const size = parseInt(req.body.size, 10) || 256;
-    const buffer = await toolsService.imageToIco(req.file.buffer, size);
-
-    res.set('Content-Type', 'image/x-icon');
-    res.set('Content-Disposition', `attachment; filename="icon-${size}.ico"`);
-    res.send(buffer);
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
+export const urlEncode = asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.encodeURL(text);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/url/encode
- */
-export async function urlEncode(req, res) {
-  try {
-    const { text } = req.body;
-    if (text === undefined || text === null) {
-      return res.status(400).json({ success: false, error: 'Text is required' });
-    }
-    const encoded = toolsService.encodeURL(text);
-    res.json({ success: true, data: { encoded } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
+export const urlDecode = asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text) {
+    throw badRequest('请提供 text');
   }
-}
+  const result = toolsService.decodeURL(text);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/url/decode
- */
-export async function urlDecode(req, res) {
-  try {
-    const { encoded } = req.body;
-    if (!encoded) {
-      return res.status(400).json({ success: false, error: 'Encoded string is required' });
-    }
-    const decoded = toolsService.decodeURL(encoded);
-    res.json({ success: true, data: { decoded } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
+export const timestampConvert = asyncHandler(async (req, res) => {
+  const { input, direction } = req.body;
+  if (!input || !direction) {
+    throw badRequest('请提供 input 和 direction');
   }
-}
+  const result = toolsService.convertTimestamp(input, direction);
+  res.json({ success: true, data: result });
+});
 
-/**
- * POST /api/tools/timestamp/convert
- */
-export async function timestampConvert(req, res) {
-  try {
-    const { input, direction } = req.body;
-    if (input === undefined || input === null) {
-      return res.status(400).json({ success: false, error: 'Input is required' });
-    }
-    if (!direction) {
-      return res.status(400).json({ success: false, error: 'Direction is required' });
-    }
-    const result = toolsService.convertTimestamp(input, direction);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
+export const codeFormat = asyncHandler(async (req, res) => {
+  const { language, text, indent = 2 } = req.body;
+  if (!language || !text) {
+    throw badRequest('请提供 language 和 text');
   }
-}
+  const result = await toolsService.formatCode(language, text, Number(indent));
+  res.json({ success: true, data: { result } });
+});
 
-// ============ Code Formatting (F5) ============
-
-/**
- * POST /api/tools/format/code
- */
-export const codeFormat = async (req, res) => {
-  try {
-    const { language, text, indent } = req.body;
-    if (!text) return res.status(400).json({ success: false, error: '请输入代码' });
-    if (text.length > 200000) return res.status(400).json({ success: false, error: '代码过长，最大支持 200KB' });
-    const formatted = await toolsService.formatCode(language, text, indent);
-    res.json({ success: true, data: { formatted } });
-  } catch (err) {
-    res.status(err.statusCode || 500).json({ success: false, error: err.message });
+export const jwtEncode = asyncHandler(async (req, res) => {
+  const { payload, secret, options = {} } = req.body;
+  if (!payload || !secret) {
+    throw badRequest('请提供 payload 和 secret');
   }
-};
+  const result = toolsService.generateJWT(payload, secret, options);
+  res.json({ success: true, data: { result } });
+});
 
-// ============ Generator Tools (F7) ============
-
-/**
- * POST /api/tools/generate/jwt/encode
- */
-export const jwtEncode = async (req, res) => {
-  try {
-    const { payload, secret, expiresIn, algorithm } = req.body;
-    if (!payload || !secret) return res.status(400).json({ success: false, error: '请提供 payload 和 secret' });
-    let parsedPayload;
-    try { parsedPayload = JSON.parse(payload); } catch { return res.status(400).json({ success: false, error: 'payload 不是有效的 JSON' }); }
-    const token = toolsService.generateJWT(parsedPayload, secret, { expiresIn, algorithm });
-    res.json({ success: true, data: { token } });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
+export const jwtDecode = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    throw badRequest('请提供 token');
   }
-};
+  const result = toolsService.decodeJWT(token);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/generate/jwt/decode
- */
-export const jwtDecode = async (req, res) => {
-  try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ success: false, error: '请提供 token' });
-    const decoded = toolsService.decodeJWT(token);
-    res.json({ success: true, data: { decoded } });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
-};
+export const passwordGenerate = asyncHandler(async (req, res) => {
+  const { length = 16, options = {} } = req.body;
+  const result = toolsService.generatePassword(Number(length), options);
+  res.json({ success: true, data: { result } });
+});
 
-/**
- * POST /api/tools/generate/password
- */
-export const passwordGenerate = async (req, res) => {
-  try {
-    const { length = 16, uppercase = true, lowercase = true, numbers = true, symbols = true } = req.body;
-    const password = toolsService.generatePassword(length, { uppercase, lowercase, numbers, symbols });
-    res.json({ success: true, data: { password } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+export const uuidGenerate = asyncHandler(async (req, res) => {
+  const { count = 1 } = req.body;
+  if (count > 100) {
+    throw badRequest('单次最多生成 100 个 UUID');
   }
-};
-
-/**
- * POST /api/tools/generate/uuid
- */
-export const uuidGenerate = async (req, res) => {
-  try {
-    const { count = 1 } = req.body;
-    const uuids = toolsService.generateUUIDs(count);
-    res.json({ success: true, data: { uuids } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
+  const result = toolsService.generateUUIDs(Number(count));
+  res.json({ success: true, data: { result } });
+});

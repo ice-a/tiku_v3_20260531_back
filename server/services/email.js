@@ -61,6 +61,10 @@ function wrapTemplate(title, bodyHtml, quote) {
 }
 
 export async function sendMail(to, subject, title, bodyHtml) {
+  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_EMAILS === '1') {
+    return;
+  }
+
   assertSmtpConfig();
 
   const quote = await getHitokoto({ refresh: true });

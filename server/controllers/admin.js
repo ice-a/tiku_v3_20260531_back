@@ -1,144 +1,57 @@
 import * as adminService from '../services/admin.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
-/**
- * GET /api/admin/users - User list
- */
-export async function getUsers(req, res) {
-  try {
-    const result = await adminService.getUsers(req.query);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getUsers = asyncHandler(async (req, res) => {
+  const result = await adminService.getUsers(req.query);
+  res.json({ success: true, data: result });
+});
 
-/**
- * GET /api/admin/users/:id - User detail
- */
-export async function getUserById(req, res) {
-  try {
-    const result = await adminService.getUserById(req.params.id);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getUserById = asyncHandler(async (req, res) => {
+  const result = await adminService.getUserById(req.params.id);
+  res.json({ success: true, data: result });
+});
 
-/**
- * PUT /api/admin/users/:id - Update user
- */
-export async function updateUser(req, res) {
-  try {
-    const user = await adminService.updateUser(req.params.id, req.body);
-    res.json({ success: true, data: { user } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const updateUser = asyncHandler(async (req, res) => {
+  const user = await adminService.updateUser(req.params.id, req.body);
+  res.json({ success: true, data: { user } });
+});
 
-/**
- * DELETE /api/admin/users/:id - Delete user
- */
-export async function deleteUser(req, res) {
-  try {
-    await adminService.deleteUser(req.params.id);
-    res.json({ success: true, message: 'User deleted' });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const deleteUser = asyncHandler(async (req, res) => {
+  await adminService.deleteUser(req.params.id);
+  res.json({ success: true, message: 'User deleted' });
+});
 
-/**
- * GET /api/admin/stats/content - Content statistics
- */
-export async function getContentStats(req, res) {
-  try {
-    const stats = await adminService.getContentStats();
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getContentStats = asyncHandler(async (req, res) => {
+  const stats = await adminService.getContentStats();
+  res.json({ success: true, data: stats });
+});
 
-/**
- * GET /api/admin/stats/dashboard - Dashboard statistics
- */
-export async function getDashboardStats(req, res) {
-  try {
-    const stats = await adminService.getDashboardStats();
-    res.json({ success: true, data: stats });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getDashboardStats = asyncHandler(async (req, res) => {
+  const stats = await adminService.getDashboardStats();
+  res.json({ success: true, data: stats });
+});
 
-/**
- * GET /api/admin/content/pending - Pending content
- */
-export async function getPendingContent(req, res) {
-  try {
-    const pending = await adminService.getPendingContent(req.query.type);
-    res.json({ success: true, data: { pending } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getPendingContent = asyncHandler(async (req, res) => {
+  const pending = await adminService.getPendingContent(req.query.type);
+  res.json({ success: true, data: { pending } });
+});
 
-/**
- * PUT /api/admin/content/:type/:id/approve
- */
-export async function approveContent(req, res) {
-  try {
-    const result = await adminService.approveContent(req.params.type, req.params.id);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const approveContent = asyncHandler(async (req, res) => {
+  const result = await adminService.approveContent(req.params.type, req.params.id);
+  res.json({ success: true, data: result });
+});
 
-/**
- * PUT /api/admin/content/:type/:id/reject
- */
-export async function rejectContent(req, res) {
-  try {
-    const result = await adminService.rejectContent(req.params.type, req.params.id);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const rejectContent = asyncHandler(async (req, res) => {
+  const result = await adminService.rejectContent(req.params.type, req.params.id);
+  res.json({ success: true, data: result });
+});
 
-/**
- * GET /api/admin/settings - System settings
- */
-export async function getSettings(req, res) {
-  try {
-    const settings = await adminService.getSystemSettings();
-    res.json({ success: true, data: { settings } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const getSettings = asyncHandler(async (req, res) => {
+  const settings = await adminService.getSystemSettings();
+  res.json({ success: true, data: { settings } });
+});
 
-/**
- * PUT /api/admin/settings - Update system settings
- */
-export async function updateSettings(req, res) {
-  try {
-    const settings = await adminService.updateSystemSettings(req.body);
-    res.json({ success: true, data: { settings } });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({ success: false, error: err.message });
-  }
-}
+export const updateSettings = asyncHandler(async (req, res) => {
+  const settings = await adminService.updateSystemSettings(req.body);
+  res.json({ success: true, data: { settings } });
+});

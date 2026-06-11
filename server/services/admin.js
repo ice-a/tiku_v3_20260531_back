@@ -4,14 +4,10 @@ import Navigation from '../models/Navigation.js';
 import Affiliate from '../models/Affiliate.js';
 import PracticeRecord from '../models/PracticeRecord.js';
 import Feedback from '../models/Feedback.js';
+import { badRequest, notFound } from '../utils/HttpError.js';
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * Get users list with pagination and search
- * @param {Object} query - { page, limit, keyword, role }
- * @returns {Object} { users, total, page, limit }
- */
 export async function getUsers(query) {
   const { page = 1, limit = 20, keyword, role } = query;
 
@@ -40,20 +36,12 @@ export async function getUsers(query) {
   return { users, total, page: Number(page), limit: Number(limit) };
 }
 
-/**
- * Get user by ID with stats
- * @param {string} id
- * @returns {Object} { user, stats }
- */
 export async function getUserById(id) {
   const user = await User.findById(id);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
-  // Aggregate user stats
   const [practiceCount, correctCount, favoriteCount] = await Promise.all([
     PracticeRecord.countDocuments({ userId: id }),
     PracticeRecord.countDocuments({ userId: id, isCorrect: true }),
@@ -75,12 +63,6 @@ export async function getUserById(id) {
   };
 }
 
-/**
- * Update user info (role, status)
- * @param {string} id
- * @param {Object} data - { role, status }
- * @returns {Object} updated user
- */
 export async function updateUser(id, data) {
   const allowedFields = ['role'];
   const updates = {};
@@ -97,27 +79,18 @@ export async function updateUser(id, data) {
   });
 
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   return user;
 }
 
-/**
- * Delete user and related data
- * @param {string} id
- */
 export async function deleteUser(id) {
   const user = await User.findById(id);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
-  // Delete user and related data
   await Promise.all([
     User.findByIdAndDelete(id),
     PracticeRecord.deleteMany({ userId: id }),
@@ -125,10 +98,6 @@ export async function deleteUser(id) {
   ]);
 }
 
-/**
- * Get content statistics
- * @returns {Object} { questions, navigations, affiliates, feedbacks }
- */
 export async function getContentStats() {
   const [questionStats, navigationCount, affiliateCount, feedbackStats] = await Promise.all([
     Question.aggregate([
@@ -151,14 +120,12 @@ export async function getContentStats() {
     ])
   ]);
 
-  // Parse question stats
   const questionMap = {};
   for (const stat of questionStats) {
     questionMap[stat._id] = stat.count;
   }
   const totalQuestions = Object.values(questionMap).reduce((a, b) => a + b, 0);
 
-  // Parse feedback stats
   const feedbackMap = {};
   for (const stat of feedbackStats) {
     feedbackMap[stat._id] = stat.count;
@@ -186,11 +153,6 @@ export async function getContentStats() {
   };
 }
 
-/**
- * Get pending content by type
- * @param {string} type - question|navigation|affiliate
- * @returns {Array} pending items
- */
 export async function getPendingContent(type) {
   let pending = [];
 
@@ -223,9 +185,7 @@ export async function approveContent(type, id) {
   if (type === 'question') {
     const question = await Question.findById(id);
     if (!question) {
-      const error = new Error('Question not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Question not found');
     }
     question.status = 'approved';
     await question.save();
@@ -235,9 +195,7 @@ export async function approveContent(type, id) {
   if (type === 'navigation') {
     const navigation = await Navigation.findById(id);
     if (!navigation) {
-      const error = new Error('Navigation not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Navigation not found');
     }
     navigation.status = 'approved';
     await navigation.save();
@@ -247,9 +205,7 @@ export async function approveContent(type, id) {
   if (type === 'feedback') {
     const feedback = await Feedback.findById(id);
     if (!feedback) {
-      const error = new Error('Feedback not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Feedback not found');
     }
     feedback.status = 'resolved';
     feedback.resolvedAt = new Date();
@@ -257,18 +213,14 @@ export async function approveContent(type, id) {
     return { message: 'Feedback resolved' };
   }
 
-  const error = new Error('Unsupported content type');
-  error.statusCode = 400;
-  throw error;
+  throw badRequest('Unsupported content type');
 }
 
 export async function rejectContent(type, id) {
   if (type === 'question') {
     const question = await Question.findById(id);
     if (!question) {
-      const error = new Error('Question not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Question not found');
     }
     question.status = 'rejected';
     await question.save();
@@ -278,9 +230,7 @@ export async function rejectContent(type, id) {
   if (type === 'navigation') {
     const navigation = await Navigation.findById(id);
     if (!navigation) {
-      const error = new Error('Navigation not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Navigation not found');
     }
     navigation.status = 'rejected';
     await navigation.save();
@@ -290,22 +240,14 @@ export async function rejectContent(type, id) {
   if (type === 'feedback') {
     const feedback = await Feedback.findByIdAndDelete(id);
     if (!feedback) {
-      const error = new Error('Feedback not found');
-      error.statusCode = 404;
-      throw error;
+      throw notFound('Feedback not found');
     }
     return { message: 'Feedback deleted' };
   }
 
-  const error = new Error('Unsupported content type');
-  error.statusCode = 400;
-  throw error;
+  throw badRequest('Unsupported content type');
 }
 
-/**
- * Get dashboard statistics
- * @returns {Object} { users, content, activity }
- */
 export async function getDashboardStats() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -328,7 +270,6 @@ export async function getDashboardStats() {
     Feedback.countDocuments()
   ]);
 
-  // Active today: users who practiced today
   const activeTodayPractices = await PracticeRecord.distinct('userId', {
     createdAt: { $gte: today }
   });
@@ -351,10 +292,6 @@ export async function getDashboardStats() {
   };
 }
 
-/**
- * Get system settings
- * @returns {Object} settings
- */
 export async function getSystemSettings() {
   return {
     siteName: process.env.SITE_NAME || '题库系统',

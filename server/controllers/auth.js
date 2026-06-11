@@ -1,295 +1,176 @@
 import * as authService from '../services/auth.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { badRequest } from '../utils/HttpError.js';
+import { validatePasswordStrength } from '../utils/passwordPolicy.js';
 
-/**
- * POST /api/auth/register
- */
-export async function register(req, res) {
-  try {
-    const { username, email, password } = req.body;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // Input validation
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username, email and password are required'
-      });
-    }
+export const register = asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  const email = String(req.body.email || '').toLowerCase().trim();
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'Password must be at least 6 characters'
-      });
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format'
-      });
-    }
-
-    const result = await authService.register(username, email, password);
-
-    res.status(201).json({
-      success: true,
-      data: {
-        user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-      }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  if (!username || !email || !password) {
+    throw badRequest('Username, email and password are required');
   }
-}
 
-/**
- * POST /api/auth/login
- */
-export async function login(req, res) {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email and password are required'
-      });
-    }
-
-    const result = await authService.login(email, password);
-
-    res.json({
-      success: true,
-      data: {
-        user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-      }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  if (!EMAIL_REGEX.test(email)) {
+    throw badRequest('Invalid email format');
   }
-}
 
-/**
- * POST /api/auth/github/login
- */
-export async function githubLogin(req, res) {
-  try {
-    const { code, redirectUri } = req.body;
-
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        error: 'GitHub 授权 code 不能为空'
-      });
-    }
-
-    const result = await authService.loginWithGithub(code, redirectUri);
-
-    res.json({
-      success: true,
-      data: {
-        user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-      }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  const pwCheck = validatePasswordStrength(password);
+  if (!pwCheck.ok) {
+    throw badRequest(pwCheck.reason);
   }
-}
 
-/**
- * POST /api/auth/refresh
- */
-export async function refresh(req, res) {
-  try {
-    const { refreshToken } = req.body;
+  const result = await authService.register(username, email, password);
 
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        error: 'Refresh token is required'
-      });
-    }
+  res.status(201).json({
+    success: true,
+    data: {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+  });
+});
 
-    const result = await authService.refreshToken(refreshToken);
+export const login = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+  const email = String(req.body.email || '').toLowerCase().trim();
 
-    res.json({
-      success: true,
-      data: {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
-      }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  if (!email || !password) {
+    throw badRequest('Email and password are required');
   }
-}
 
-/**
- * GET /api/auth/profile
- */
-export async function getProfile(req, res) {
-  try {
-    const user = await authService.getProfile(req.user._id);
+  const result = await authService.login(email, password);
 
-    res.json({
-      success: true,
-      data: { user }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  res.json({
+    success: true,
+    data: {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+  });
+});
+
+export const githubLogin = asyncHandler(async (req, res) => {
+  const { code, redirectUri } = req.body;
+
+  if (!code) {
+    throw badRequest('GitHub 授权 code 不能为空');
   }
-}
 
-/**
- * PUT /api/auth/profile
- */
-export async function updateProfile(req, res) {
-  try {
-    const { username, avatar, notificationPreferences } = req.body;
+  const result = await authService.loginWithGithub(code, redirectUri);
 
-    const user = await authService.updateProfile(req.user._id, {
-      username,
-      avatar,
-      notificationPreferences
-    });
+  res.json({
+    success: true,
+    data: {
+      user: result.user,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+  });
+});
 
-    res.json({
-      success: true,
-      data: { user }
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+export const refresh = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    throw badRequest('Refresh token is required');
   }
-}
 
-/**
- * POST /api/auth/forgot-password
- */
-export async function forgotPassword(req, res) {
-  try {
-    const { email } = req.body;
+  const result = await authService.refreshToken(refreshToken);
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        error: '邮箱不能为空'
-      });
-    }
+  res.json({
+    success: true,
+    data: {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+  });
+});
 
-    await authService.forgotPassword(email);
+export const getProfile = asyncHandler(async (req, res) => {
+  const user = await authService.getProfile(req.user._id);
 
-    res.json({
-      success: true,
-      message: '重置密码邮件已发送，请查收'
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  res.json({
+    success: true,
+    data: { user },
+  });
+});
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { username, avatar, notificationPreferences } = req.body;
+
+  const user = await authService.updateProfile(req.user._id, {
+    username,
+    avatar,
+    notificationPreferences,
+  });
+
+  res.json({
+    success: true,
+    data: { user },
+  });
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw badRequest('邮箱不能为空');
   }
-}
 
-/**
- * POST /api/auth/reset-password
- */
-export async function resetPassword(req, res) {
-  try {
-    const { token, password } = req.body;
+  await authService.forgotPassword(email);
 
-    if (!token || !password) {
-      return res.status(400).json({
-        success: false,
-        error: 'Token 和密码不能为空'
-      });
-    }
+  res.json({
+    success: true,
+    message: '重置密码邮件已发送，请查收',
+  });
+});
 
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: '密码至少 6 个字符'
-      });
-    }
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { token, password } = req.body;
 
-    await authService.resetPassword(token, password);
-
-    res.json({
-      success: true,
-      message: '密码重置成功'
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  if (!token || !password) {
+    throw badRequest('Token 和密码不能为空');
   }
-}
 
-/**
- * PUT /api/auth/password
- */
-export async function changePassword(req, res) {
-  try {
-    const { oldPassword, newPassword } = req.body;
-
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        error: 'Old password and new password are required'
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'New password must be at least 6 characters'
-      });
-    }
-
-    await authService.changePassword(req.user._id, oldPassword, newPassword);
-
-    res.json({
-      success: true,
-      message: 'Password updated'
-    });
-  } catch (err) {
-    const statusCode = err.statusCode || 500;
-    res.status(statusCode).json({
-      success: false,
-      error: err.message
-    });
+  const pwCheck = validatePasswordStrength(password);
+  if (!pwCheck.ok) {
+    throw badRequest(pwCheck.reason);
   }
-}
+
+  await authService.resetPassword(token, password);
+
+  res.json({
+    success: true,
+    message: '密码重置成功',
+  });
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw badRequest('Old password and new password are required');
+  }
+
+  const pwCheck = validatePasswordStrength(newPassword);
+  if (!pwCheck.ok) {
+    throw badRequest(pwCheck.reason);
+  }
+
+  await authService.changePassword(req.user._id, oldPassword, newPassword);
+
+  res.json({
+    success: true,
+    message: 'Password updated',
+  });
+});
+
+export const logout = asyncHandler(async (req, res) => {
+  const result = await authService.logout(req.user._id);
+  res.json({ success: true, message: result.message });
+});

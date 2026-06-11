@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import config from './config/index.js';
+import errorHandler from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -53,7 +54,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Auth 限流：登录/注册/刷新 token
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 分钟
-  max: 20,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: '请求过于频繁，请稍后再试' }
@@ -91,14 +92,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 错误处理中间件
-app.use((err, req, res, _next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || '服务器内部错误',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+app.use(errorHandler);
 
 export default app;
 export { config };

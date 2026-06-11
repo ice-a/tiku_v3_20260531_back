@@ -6,6 +6,8 @@ import PracticeRecord from './PracticeRecord.js';
 import Feedback from './Feedback.js';
 import Favorite from './Favorite.js';
 import ChatHistory from './ChatHistory.js';
+import CareerPost from './CareerPost.js';
+import Comment from './Comment.js';
 
 export {
   User,
@@ -15,5 +17,7 @@ export {
   PracticeRecord,
   Feedback,
   Favorite,
-  ChatHistory
+  ChatHistory,
+  CareerPost,
+  Comment
 };

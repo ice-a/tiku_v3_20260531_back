@@ -1,11 +1,9 @@
 import Affiliate from '../models/Affiliate.js';
 import { readSpreadsheetRows } from '../utils/spreadsheet.js';
+import { badRequest, forbidden, notFound } from '../utils/HttpError.js';
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * 获取 AFF 列表（分页、搜索、筛选）
- */
 export async function getList(query = {}) {
   const {
     page = 1,
@@ -56,29 +54,19 @@ export async function getList(query = {}) {
   };
 }
 
-/**
- * 获取 AFF 详情
- */
 export async function getById(id) {
   const affiliate = await Affiliate.findById(id).lean();
   if (!affiliate) {
-    const err = new Error('Affiliate not found');
-    err.status = 404;
-    throw err;
+    throw notFound('Affiliate not found');
   }
   return affiliate;
 }
 
-/**
- * 创建 AFF
- */
 export async function create(data) {
   const { name, url, icon, category, tags } = data;
 
   if (!name || !url || !category) {
-    const err = new Error('name, url and category are required');
-    err.status = 400;
-    throw err;
+    throw badRequest('name, url and category are required');
   }
 
   const affiliate = await Affiliate.create({
@@ -92,17 +80,12 @@ export async function create(data) {
   return affiliate.toObject();
 }
 
-/**
- * 更新 AFF
- */
 export async function update(id, data) {
   const { name, url, icon, category, tags } = data;
 
   const affiliate = await Affiliate.findById(id);
   if (!affiliate) {
-    const err = new Error('Affiliate not found');
-    err.status = 404;
-    throw err;
+    throw notFound('Affiliate not found');
   }
 
   if (name !== undefined) affiliate.name = name;
@@ -115,22 +98,14 @@ export async function update(id, data) {
   return affiliate.toObject();
 }
 
-/**
- * 删除 AFF
- */
 export async function remove(id) {
   const affiliate = await Affiliate.findByIdAndDelete(id);
   if (!affiliate) {
-    const err = new Error('Affiliate not found');
-    err.status = 404;
-    throw err;
+    throw notFound('Affiliate not found');
   }
   return { message: 'Affiliate deleted' };
 }
 
-/**
- * 批量导入（CSV/Excel）
- */
 export async function bulkImport(file) {
   let imported = 0;
   let failed = 0;
@@ -164,4 +139,58 @@ export async function bulkImport(file) {
   }
 
   return { imported, failed, errors };
+}
+
+export async function like(id) {
+  const affiliate = await Affiliate.findByIdAndUpdate(
+    id,
+    { $inc: { 'stats.likes': 1 } },
+    { new: true }
+  );
+  if (!affiliate) {
+    throw notFound('Affiliate not found');
+  }
+  return { likes: affiliate.stats.likes };
+}
+
+export async function incrementViews(id) {
+  const affiliate = await Affiliate.findByIdAndUpdate(
+    id,
+    { $inc: { 'stats.views': 1 } },
+    { new: true, projection: { 'stats.views': 1 } }
+  );
+  if (!affiliate) {
+    throw notFound('Affiliate not found');
+  }
+  return { views: affiliate.stats.views };
+}
+
+export async function getCategories() {
+  const result = await Affiliate.aggregate([
+    { $group: { _id: '$category', count: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]);
+  return result.map((r) => ({ name: r._id, count: r.count }));
+}
+
+export async function reorder(orders, user) {
+  if (!Array.isArray(orders)) {
+    throw badRequest('orders must be an array');
+  }
+  if (user?.role !== 'admin') {
+    throw forbidden('Only admins can reorder');
+  }
+  const ops = orders
+    .filter((o) => o && o.id !== undefined && Number.isFinite(Number(o.order)))
+    .map((o) => ({
+      updateOne: {
+        filter: { _id: o.id },
+        update: { $set: { order: Number(o.order) } },
+      },
+    }));
+  if (ops.length === 0) {
+    return { modified: 0 };
+  }
+  const result = await Affiliate.bulkWrite(ops);
+  return { modified: result.modifiedCount || 0 };
 }

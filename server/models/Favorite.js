@@ -10,7 +10,7 @@ const favoriteSchema = new Schema({
   },
   itemType: {
     type: String,
-    enum: ['question', 'navigation', 'affiliate'],
+    enum: ['question', 'navigation', 'affiliate', 'careerPost'],
     required: true
   },
   itemId: {

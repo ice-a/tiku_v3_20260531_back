@@ -5,7 +5,14 @@ import {
   generateRefreshToken,
   verifyRefreshToken
 } from '../utils/token.js';
+import {
+  isAccountLocked,
+  recordFailedLogin,
+  clearLoginState,
+  passwordPolicy,
+} from '../utils/passwordPolicy.js';
 import { sendResetPasswordEmail, sendRegisterEmail, sendLoginEmail } from './email.js';
+import { badRequest, unauthorized, notFound } from '../utils/HttpError.js';
 
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const GITHUB_USER_URL = 'https://api.github.com/user';
@@ -13,8 +20,14 @@ const GITHUB_EMAILS_URL = 'https://api.github.com/user/emails';
 
 function createAuthPayload(user) {
   const accessToken = generateAccessToken({ userId: user._id, role: user.role });
-  const refreshToken = generateRefreshToken({ userId: user._id });
+  const refreshToken = generateRefreshToken({ userId: user._id, tokenVersion: user.tokenVersion });
   return { user, accessToken, refreshToken };
+}
+
+function ensurePasswordAcceptable(password) {
+  if (typeof password !== 'string' || password.length < 6) {
+    throw badRequest('Password must be at least 6 characters');
+  }
 }
 
 function createRandomPassword() {
@@ -26,9 +39,7 @@ function getGithubConfig() {
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    const error = new Error('GitHub OAuth Client ID 或 Client Secret 未配置');
-    error.statusCode = 500;
-    throw error;
+    throw badRequest('GitHub OAuth Client ID 或 Client Secret 未配置');
   }
 
   return { clientId, clientSecret };
@@ -46,9 +57,7 @@ async function requestGithubJson(url, options = {}) {
   const data = await response.json();
 
   if (!response.ok || data.error) {
-    const error = new Error(data.error_description || data.message || 'GitHub 授权失败');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized(data.error_description || data.message || 'GitHub 授权失败');
   }
 
   return data;
@@ -73,9 +82,7 @@ async function exchangeGithubCode(code, redirectUri) {
   });
 
   if (!tokenData.access_token) {
-    const error = new Error('GitHub 授权返回缺少 access_token');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized('GitHub 授权返回缺少 access_token');
   }
 
   return tokenData.access_token;
@@ -168,20 +175,22 @@ async function createGithubUser(profile) {
  * @param {string} password
  * @returns {Object} { user, accessToken, refreshToken }
  */
+function normalizeEmail(email) {
+  return String(email || '').toLowerCase().trim();
+}
+
 export async function register(username, email, password) {
-  // Check if username or email already exists
+  const normalizedEmail = normalizeEmail(email);
   const existingUser = await User.findOne({
-    $or: [{ username }, { email }]
+    $or: [{ username }, { email: normalizedEmail }]
   });
 
   if (existingUser) {
     const field = existingUser.username === username ? 'Username' : 'Email';
-    const error = new Error(`${field} already exists`);
-    error.statusCode = 409;
-    throw error;
+    throw badRequest(`${field} already exists`);
   }
 
-  const user = new User({ username, email, password });
+  const user = new User({ username, email: normalizedEmail, password });
   await user.save();
 
   await sendRegisterEmail(user).catch((err) => {
@@ -198,21 +207,28 @@ export async function register(username, email, password) {
  * @returns {Object} { user, accessToken, refreshToken }
  */
 export async function login(email, password) {
-  const user = await User.findOne({ email });
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
 
   if (!user) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized('Invalid email or password');
+  }
+
+  if (isAccountLocked(user)) {
+    const minutes = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+    throw unauthorized(`账号已被锁定，请 ${minutes} 分钟后再试`);
   }
 
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    throw error;
+    await recordFailedLogin(user);
+    if (isAccountLocked(user)) {
+      throw unauthorized(`登录失败次数过多，账号已锁定 ${Math.ceil(passwordPolicy.lockDurationMs / 60000)} 分钟`);
+    }
+    throw unauthorized('Invalid email or password');
   }
 
+  await clearLoginState(user);
   sendLoginEmail(user).catch(() => {});
 
   return createAuthPayload(user);
@@ -226,18 +242,14 @@ export async function login(email, password) {
  */
 export async function loginWithGithub(code, redirectUri = '') {
   if (!code) {
-    const error = new Error('GitHub 授权 code 不能为空');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('GitHub 授权 code 不能为空');
   }
 
   const accessToken = await exchangeGithubCode(code, redirectUri);
   const profile = await getGithubProfile(accessToken);
 
   if (!profile.id) {
-    const error = new Error('GitHub 授权返回缺少用户 ID');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized('GitHub 授权返回缺少用户 ID');
   }
 
   let user = await findGithubUser(profile);
@@ -269,20 +281,23 @@ export async function refreshToken(refreshToken) {
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch (err) {
-    const error = new Error('Invalid or expired refresh token');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized('Invalid or expired refresh token');
   }
 
   const user = await User.findById(decoded.userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 401;
-    throw error;
+    throw unauthorized('User not found');
+  }
+
+  // Backwards compat: tokens issued before tokenVersion was introduced lack this field.
+  // Treat missing tokenVersion as 0 to match the schema default.
+  const incomingVersion = decoded.tokenVersion ?? 0;
+  if (user.tokenVersion !== incomingVersion) {
+    throw unauthorized('Refresh token has been revoked');
   }
 
   const newAccessToken = generateAccessToken({ userId: user._id, role: user.role });
-  const newRefreshToken = generateRefreshToken({ userId: user._id });
+  const newRefreshToken = generateRefreshToken({ userId: user._id, tokenVersion: user.tokenVersion });
 
   return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 }
@@ -296,20 +311,34 @@ export async function refreshToken(refreshToken) {
 export async function changePassword(userId, oldPassword, newPassword) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   const isMatch = await user.comparePassword(oldPassword);
   if (!isMatch) {
-    const error = new Error('Old password is incorrect');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Old password is incorrect');
   }
 
   user.password = newPassword;
+  user.tokenVersion += 1;
   await user.save();
+}
+
+/**
+ * Invalidate all refresh tokens for the user by bumping tokenVersion.
+ * Access tokens already issued remain valid until their natural expiry.
+ * @param {string} userId
+ */
+export async function logout(userId) {
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { tokenVersion: 1 } },
+    { new: true }
+  );
+  if (!user) {
+    throw notFound('User not found');
+  }
+  return { message: 'Logged out', tokenVersion: user.tokenVersion };
 }
 
 /**
@@ -320,9 +349,7 @@ export async function changePassword(userId, oldPassword, newPassword) {
 export async function getProfile(userId) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
   return user;
 }
@@ -343,16 +370,13 @@ export async function updateProfile(userId, data) {
     }
   }
 
-  // Check username uniqueness if being updated
   if (updates.username) {
     const existing = await User.findOne({
       username: updates.username,
       _id: { $ne: userId }
     });
     if (existing) {
-      const error = new Error('Username already exists');
-      error.statusCode = 409;
-      throw error;
+      throw badRequest('Username already exists');
     }
   }
 
@@ -362,9 +386,7 @@ export async function updateProfile(userId, data) {
   });
 
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   return user;
@@ -375,11 +397,10 @@ export async function updateProfile(userId, data) {
  * @param {string} email
  */
 export async function forgotPassword(email) {
-  const user = await User.findOne({ email });
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
-    const error = new Error('该邮箱未注册');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('该邮箱未注册');
   }
 
   const resetToken = crypto.randomBytes(32).toString('hex');
@@ -406,9 +427,7 @@ export async function resetPassword(token, newPassword) {
   });
 
   if (!user) {
-    const error = new Error('链接无效或已过期');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('链接无效或已过期');
   }
 
   user.password = newPassword;

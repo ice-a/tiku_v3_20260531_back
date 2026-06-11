@@ -5,30 +5,19 @@ import PracticeRecord from '../models/PracticeRecord.js';
 import Question from '../models/Question.js';
 import Navigation from '../models/Navigation.js';
 import Affiliate from '../models/Affiliate.js';
+import CareerPost from '../models/CareerPost.js';
 import { normalizeAndValidateBaseUrl, buildModelsUrl } from './aiClient.js';
 import { sendEmailVerificationEmail } from './email.js';
+import { badRequest, notFound } from '../utils/HttpError.js';
 
-/**
- * Get user profile
- * @param {string} userId
- * @returns {Object} user
- */
 export async function getProfile(userId) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
   return user;
 }
 
-/**
- * Update user profile
- * @param {string} userId
- * @param {Object} data - { username, avatar, nickname, phone, bio, notificationPreferences }
- * @returns {Object} updated user
- */
 export async function updateProfile(userId, data) {
   const allowedFields = ['username', 'avatar', 'nickname', 'phone', 'bio', 'notificationPreferences', 'socials', 'customSocial'];
   const updates = {};
@@ -39,16 +28,13 @@ export async function updateProfile(userId, data) {
     }
   }
 
-  // Check username uniqueness if being updated
   if (updates.username) {
     const existing = await User.findOne({
       username: updates.username,
       _id: { $ne: userId }
     });
     if (existing) {
-      const error = new Error('Username already exists');
-      error.statusCode = 409;
-      throw error;
+      throw badRequest('Username already exists');
     }
   }
 
@@ -58,51 +44,31 @@ export async function updateProfile(userId, data) {
   });
 
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   return user;
 }
 
-/**
- * Update user password
- * @param {string} userId
- * @param {string} oldPassword
- * @param {string} newPassword
- */
 export async function updatePassword(userId, oldPassword, newPassword) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   const isMatch = await user.comparePassword(oldPassword);
   if (!isMatch) {
-    const error = new Error('Old password is incorrect');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Old password is incorrect');
   }
 
   user.password = newPassword;
   await user.save();
 }
 
-/**
- * Fetch available models from AI API
- * @param {string} userId
- * @param {Object} [override] - optional { baseUrl, apiKey } from form
- * @returns {Array} models
- */
 export async function fetchAIModels(userId, override = {}) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   const aiConfig = user.aiConfig || {};
@@ -110,9 +76,7 @@ export async function fetchAIModels(userId, override = {}) {
   const apiKey = override.apiKey || aiConfig.apiKey;
 
   if (!baseUrlRaw || !apiKey) {
-    const error = new Error('Please configure AI baseUrl and apiKey first');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('Please configure AI baseUrl and apiKey first');
   }
 
   const baseUrl = await normalizeAndValidateBaseUrl(baseUrlRaw);
@@ -133,9 +97,7 @@ export async function fetchAIModels(userId, override = {}) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.error?.message || data.error || response.statusText;
-      const error = new Error(`Failed to fetch models (${response.status}): ${detail}`);
-      error.statusCode = 502;
-      throw error;
+      throw badRequest(`Failed to fetch models (${response.status}): ${detail}`);
     }
 
     const models = (data.data || data.models || [])
@@ -146,9 +108,7 @@ export async function fetchAIModels(userId, override = {}) {
     return models;
   } catch (err) {
     if (err.name === 'AbortError') {
-      const error = new Error('Fetch models request timed out');
-      error.statusCode = 504;
-      throw error;
+      throw badRequest('Fetch models request timed out');
     }
     throw err;
   } finally {
@@ -156,36 +116,21 @@ export async function fetchAIModels(userId, override = {}) {
   }
 }
 
-/**
- * Get AI config (with masked apiKey)
- * @param {string} userId
- * @returns {Object} aiConfig
- */
 export async function getAIConfig(userId) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   const aiConfig = user.aiConfig || {};
-  const result = {
+  return {
     baseUrl: aiConfig.baseUrl || '',
     model: aiConfig.model || '',
     enabled: aiConfig.enabled || false,
     apiKey: maskApiKey(aiConfig.apiKey || '')
   };
-
-  return result;
 }
 
-/**
- * Update AI config
- * @param {string} userId
- * @param {Object} config - { baseUrl, apiKey, model, enabled }
- * @returns {Object} aiConfig
- */
 export async function updateAIConfig(userId, config) {
   const allowedFields = ['baseUrl', 'apiKey', 'model', 'enabled'];
   const updates = {};
@@ -209,9 +154,7 @@ export async function updateAIConfig(userId, config) {
   });
 
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
   const aiConfig = user.aiConfig || {};
@@ -223,12 +166,6 @@ export async function updateAIConfig(userId, config) {
   };
 }
 
-/**
- * Get favorites list
- * @param {string} userId
- * @param {string} itemType - question|navigation|affiliate
- * @returns {Array} favorites
- */
 export async function getFavorites(userId, itemType) {
   const query = { userId };
   if (itemType) {
@@ -238,22 +175,26 @@ export async function getFavorites(userId, itemType) {
   const questionIds = favorites.filter(item => item.itemType === 'question').map(item => item.itemId);
   const navigationIds = favorites.filter(item => item.itemType === 'navigation').map(item => item.itemId);
   const affiliateIds = favorites.filter(item => item.itemType === 'affiliate').map(item => item.itemId);
+  const careerPostIds = favorites.filter(item => item.itemType === 'careerPost').map(item => item.itemId);
 
-  const [questions, navigations, affiliates] = await Promise.all([
+  const [questions, navigations, affiliates, careerPosts] = await Promise.all([
     questionIds.length ? Question.find({ _id: { $in: questionIds } }).lean() : Promise.resolve([]),
     navigationIds.length ? Navigation.find({ _id: { $in: navigationIds } }).lean() : Promise.resolve([]),
-    affiliateIds.length ? Affiliate.find({ _id: { $in: affiliateIds } }).lean() : Promise.resolve([])
+    affiliateIds.length ? Affiliate.find({ _id: { $in: affiliateIds } }).lean() : Promise.resolve([]),
+    careerPostIds.length ? CareerPost.find({ _id: { $in: careerPostIds } }).lean() : Promise.resolve([])
   ]);
 
   const questionMap = new Map(questions.map(item => [String(item._id), item]));
   const navigationMap = new Map(navigations.map(item => [String(item._id), item]));
   const affiliateMap = new Map(affiliates.map(item => [String(item._id), item]));
+  const careerPostMap = new Map(careerPosts.map(item => [String(item._id), item]));
 
   return favorites.map((favorite) => {
     let item = null;
     if (favorite.itemType === 'question') item = questionMap.get(String(favorite.itemId)) || null;
     if (favorite.itemType === 'navigation') item = navigationMap.get(String(favorite.itemId)) || null;
     if (favorite.itemType === 'affiliate') item = affiliateMap.get(String(favorite.itemId)) || null;
+    if (favorite.itemType === 'careerPost') item = careerPostMap.get(String(favorite.itemId)) || null;
 
     return {
       ...favorite,
@@ -266,19 +207,10 @@ export async function getFavorites(userId, itemType) {
   });
 }
 
-/**
- * Add favorite
- * @param {string} userId
- * @param {string} itemType
- * @param {string} itemId
- * @returns {Object} favorite
- */
 export async function addFavorite(userId, itemType, itemId) {
   const existing = await Favorite.findOne({ userId, itemType, itemId });
   if (existing) {
-    const error = new Error('Already favorited');
-    error.statusCode = 409;
-    throw error;
+    throw badRequest('Already favorited');
   }
 
   const favorite = new Favorite({ userId, itemType, itemId });
@@ -286,41 +218,21 @@ export async function addFavorite(userId, itemType, itemId) {
   return favorite;
 }
 
-/**
- * Remove favorite
- * @param {string} userId
- * @param {string} itemType
- * @param {string} itemId
- */
 export async function removeFavorite(userId, itemType, itemId) {
   const result = await Favorite.findOneAndDelete({ userId, itemType, itemId });
   if (!result) {
-    const error = new Error('Favorite not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('Favorite not found');
   }
 }
 
-/**
- * Get notifications (from user notification preferences)
- * @param {string} userId
- * @returns {Object} notificationPreferences
- */
 export async function getNotifications(userId) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
   return user.notificationPreferences || {};
 }
 
-/**
- * Get user stats (favorites, practice count, accuracy)
- * @param {string} userId
- * @returns {Object} stats
- */
 export async function getUserStats(userId) {
   const [favoriteCount, practiceCount, correctCount] = await Promise.all([
     Favorite.countDocuments({ userId }),
@@ -335,11 +247,6 @@ export async function getUserStats(userId) {
   };
 }
 
-/**
- * Get user's uploaded questions and navigations
- * @param {string} userId
- * @returns {Object} { questions, navigations }
- */
 export async function getMySubmissions(userId) {
   const [questions, navigations] = await Promise.all([
     Question.find({ uploadedBy: userId })
@@ -356,10 +263,6 @@ export async function getMySubmissions(userId) {
   return { questions, navigations };
 }
 
-/**
- * Get public site statistics
- * @returns {Object} site stats
- */
 export async function getSiteStats() {
   const [totalUsers, totalQuestions, totalNavigations, totalAffiliates, totalPractices] = await Promise.all([
     User.countDocuments(),
@@ -371,35 +274,29 @@ export async function getSiteStats() {
   return { totalUsers, totalQuestions, totalNavigations, totalAffiliates, totalPractices };
 }
 
-/**
- * Send email verification for binding
- * @param {string} userId
- * @param {string} email
- */
+function normalizeEmail(email) {
+  return String(email || '').toLowerCase().trim();
+}
+
 export async function sendEmailVerification(userId, email) {
   const user = await User.findById(userId);
   if (!user) {
-    const error = new Error('User not found');
-    error.statusCode = 404;
-    throw error;
+    throw notFound('User not found');
   }
 
-  // Check if email is already used by another user
-  const existing = await User.findOne({ email, _id: { $ne: userId } });
+  const normalizedEmail = normalizeEmail(email);
+  const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: userId } });
   if (existing) {
-    const error = new Error('该邮箱已被其他用户使用');
-    error.statusCode = 409;
-    throw error;
+    throw badRequest('该邮箱已被其他用户使用');
   }
 
-  // Generate verification token
   const verifyToken = crypto.randomBytes(32).toString('hex');
   const hashedToken = crypto.createHash('sha256').update(verifyToken).digest('hex');
 
   user.emailVerificationToken = hashedToken;
   user.emailVerificationExpire = new Date(Date.now() + 30 * 60 * 1000);
-  if (user.email !== email) {
-    user.email = email;
+  if (user.email !== normalizedEmail) {
+    user.email = normalizedEmail;
     user.emailVerified = false;
   }
   await user.save();
@@ -407,12 +304,6 @@ export async function sendEmailVerification(userId, email) {
   await sendEmailVerificationEmail(user, verifyToken);
 }
 
-/**
- * Verify email with token
- * @param {string} userId
- * @param {string} token
- * @returns {Object} user
- */
 export async function verifyEmail(userId, token) {
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
@@ -423,9 +314,7 @@ export async function verifyEmail(userId, token) {
   });
 
   if (!user) {
-    const error = new Error('验证链接无效或已过期');
-    error.statusCode = 400;
-    throw error;
+    throw badRequest('验证链接无效或已过期');
   }
 
   user.emailVerified = true;
@@ -436,11 +325,6 @@ export async function verifyEmail(userId, token) {
   return user;
 }
 
-/**
- * Mask API key: show first 4 chars + ****
- * @param {string} apiKey
- * @returns {string}
- */
 function maskApiKey(apiKey) {
   if (!apiKey || apiKey.length <= 4) {
     return apiKey || '';

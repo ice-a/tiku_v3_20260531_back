@@ -1,13 +1,23 @@
-import { getHitokoto } from '../services/hitokoto.js';
+import * as hitokotoService from '../services/hitokoto.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
-export async function getRandomHitokoto(req, res) {
-  try {
-    const data = await getHitokoto({ refresh: req.query.refresh === '1' });
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message || '获取一言失败',
-    });
-  }
-}
+export const getRandomHitokoto = asyncHandler(async (req, res) => {
+  const hitokoto = await hitokotoService.getHitokoto();
+  res.json({ success: true, data: { hitokoto } });
+});
+
+export const addHitokoto = asyncHandler(async (req, res) => {
+  res.status(501).json({ success: false, error: 'Not implemented' });
+});
+
+export const getAllHitokotos = asyncHandler(async (req, res) => {
+  res.status(501).json({ success: false, error: 'Not implemented' });
+});
+
+export const deleteHitokoto = asyncHandler(async (req, res) => {
+  res.status(501).json({ success: false, error: 'Not implemented' });
+});
+
+export const syncHitokotos = asyncHandler(async (req, res) => {
+  res.status(501).json({ success: false, error: 'Not implemented' });
+});

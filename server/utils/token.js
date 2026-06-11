@@ -14,7 +14,7 @@ export function generateAccessToken(payload) {
 
 /**
  * Generate refresh token
- * @param {Object} payload - { userId }
+ * @param {Object} payload - { userId, tokenVersion }
  * @returns {string} JWT refresh token
  */
 export function generateRefreshToken(payload) {

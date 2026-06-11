@@ -7,10 +7,10 @@ import User from '../models/User.js';
 import config from '../config/index.js';
 import { callChatCompletions } from './aiClient.js';
 import { readSpreadsheetRows } from '../utils/spreadsheet.js';
+import { badRequest, forbidden, notFound, serverError } from '../utils/HttpError.js';
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// 邮件发送器
 const createTransporter = () => {
   if (!config.smtp.host) return null;
   return nodemailer.createTransport({
@@ -23,8 +23,10 @@ const createTransporter = () => {
   });
 };
 
-// 发送邮件通知
 const sendEmail = async (to, subject, html) => {
+  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_EMAILS === '1') {
+    return;
+  }
   const transporter = createTransporter();
   if (!transporter) return;
   try {
@@ -39,7 +41,6 @@ const sendEmail = async (to, subject, html) => {
   }
 };
 
-// 获取题目列表
 export const getList = async (query) => {
   const {
     page = 1,
@@ -82,7 +83,6 @@ export const getList = async (query) => {
   return { questions, total, page: Number(page), limit: Number(limit) };
 };
 
-// 获取题目详情
 export const getById = async (id) => {
   const question = await Question.findById(id)
     .populate('uploadedBy', 'username')
@@ -90,17 +90,15 @@ export const getById = async (id) => {
     .populate('answerPool.user', 'username');
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
-  // 增加浏览次数
   question.stats.views += 1;
   await question.save();
 
   return question;
 };
 
-// 创建题目
 export const create = async (data, userId) => {
   const question = new Question({
     ...data,
@@ -111,7 +109,6 @@ export const create = async (data, userId) => {
   return question;
 };
 
-// 更新题目
 const canManageQuestion = (question, user) => {
   return user?.role === 'admin' || String(question.uploadedBy) === String(user?._id);
 };
@@ -132,11 +129,11 @@ const pickQuestionUpdates = (data) => {
 export const update = async (id, data, user) => {
   const question = await Question.findById(id);
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   if (!canManageQuestion(question, user)) {
-    throw Object.assign(new Error('Forbidden'), { status: 403 });
+    throw forbidden('Forbidden');
   }
 
   Object.assign(question, pickQuestionUpdates(data));
@@ -149,20 +146,18 @@ export const update = async (id, data, user) => {
   return question;
 };
 
-// 删除题目
 export const deleteQuestion = async (id, user) => {
   const question = await Question.findById(id);
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   if (!canManageQuestion(question, user)) {
-    throw Object.assign(new Error('Forbidden'), { status: 403 });
+    throw forbidden('Forbidden');
   }
 
   await Question.findByIdAndDelete(id);
 
-  // 删除相关练习记录和反馈
   await Promise.all([
     PracticeRecord.deleteMany({ questionId: id }),
     Feedback.deleteMany({ questionId: id })
@@ -171,7 +166,6 @@ export const deleteQuestion = async (id, user) => {
   return question;
 };
 
-// 批量导入
 export const bulkImport = async (file, userId) => {
   const rows = await readSpreadsheetRows(file);
 
@@ -197,7 +191,6 @@ export const bulkImport = async (file, userId) => {
     }
   }
 
-  // 通知管理员
   const admins = await User.find({ role: 'admin' });
   for (const admin of admins) {
     await sendEmail(
@@ -210,7 +203,6 @@ export const bulkImport = async (file, userId) => {
   return { imported, failed };
 };
 
-// 审核通过
 export const approve = async (id, adminId) => {
   const question = await Question.findByIdAndUpdate(
     id,
@@ -219,10 +211,9 @@ export const approve = async (id, adminId) => {
   );
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
-  // 通知上传者
   if (question.uploadedBy) {
     const uploader = await User.findById(question.uploadedBy);
     if (uploader) {
@@ -237,7 +228,6 @@ export const approve = async (id, adminId) => {
   return question;
 };
 
-// 审核拒绝
 export const reject = async (id, adminId) => {
   const question = await Question.findByIdAndUpdate(
     id,
@@ -246,10 +236,9 @@ export const reject = async (id, adminId) => {
   );
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
-  // 通知上传者
   if (question.uploadedBy) {
     const uploader = await User.findById(question.uploadedBy);
     if (uploader) {
@@ -264,20 +253,17 @@ export const reject = async (id, adminId) => {
   return question;
 };
 
-// 练习答题
 export const practice = async (questionId, userId, userAnswer) => {
   const question = await Question.findById(questionId);
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
-  // 简单的答案匹配判断
   const normalizedUserAnswer = userAnswer.trim().toLowerCase();
   const normalizedCorrectAnswer = question.answer.trim().toLowerCase();
   const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
 
-  // 创建练习记录
   const record = new PracticeRecord({
     userId,
     questionId,
@@ -286,7 +272,6 @@ export const practice = async (questionId, userId, userAnswer) => {
   });
   await record.save();
 
-  // 更新题目统计
   question.stats.attempts += 1;
   if (isCorrect) question.stats.correctAttempts += 1;
   await question.save();
@@ -294,19 +279,17 @@ export const practice = async (questionId, userId, userAnswer) => {
   return { record, isCorrect };
 };
 
-// AI 评分
 export const aiScore = async (questionId, userId, userAnswer, aiConfig) => {
   const question = await Question.findById(questionId);
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   if (!aiConfig || !aiConfig.enabled) {
-    throw Object.assign(new Error('请先配置 AI 评分功能'), { status: 400 });
+    throw badRequest('请先配置 AI 评分功能');
   }
 
-  // 调用 AI API 进行评分
   const prompt = `请对以下答案进行评分（0-100分）并给出分析。
 
 题目：${question.text}
@@ -322,12 +305,10 @@ export const aiScore = async (questionId, userId, userAnswer, aiConfig) => {
     });
     const content = data.choices?.[0]?.message?.content || '{}';
 
-    // 解析 JSON，处理可能的解析失败
     let result;
     try {
       result = JSON.parse(content);
     } catch (parseErr) {
-      // 如果 JSON 解析失败，尝试提取分数和分析
       const scoreMatch = content.match(/"score"\s*:\s*(\d+)/);
       const analysisMatch = content.match(/"analysis"\s*:\s*"([^"]+)"/);
       result = {
@@ -336,7 +317,6 @@ export const aiScore = async (questionId, userId, userAnswer, aiConfig) => {
       };
     }
 
-    // 保存练习记录
     const record = new PracticeRecord({
       userId,
       questionId,
@@ -348,20 +328,19 @@ export const aiScore = async (questionId, userId, userAnswer, aiConfig) => {
 
     return { score: result.score, analysis: result.analysis };
   } catch (err) {
-    throw Object.assign(new Error('AI 评分失败: ' + err.message), { status: 500 });
+    throw serverError('AI 评分失败: ' + err.message);
   }
 };
 
-// AI 生成答案
 export const aiGenerateAnswer = async (questionId, aiConfig) => {
   const question = await Question.findById(questionId);
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   if (!aiConfig || !aiConfig.enabled) {
-    throw Object.assign(new Error('请先配置 AI 功能'), { status: 400 });
+    throw badRequest('请先配置 AI 功能');
   }
 
   const prompt = `请根据以下题目生成参考答案。
@@ -380,40 +359,36 @@ export const aiGenerateAnswer = async (questionId, aiConfig) => {
     const answer = data.choices?.[0]?.message?.content || '';
     return { answer };
   } catch (err) {
-    throw Object.assign(new Error('AI 生成答案失败: ' + err.message), { status: 500 });
+    throw serverError('AI 生成答案失败: ' + err.message);
   }
 };
 
-// 提交答案到答案池
 export const submitToAnswerPool = async (questionId, userId, answer, source = 'manual') => {
   const question = await Question.findById(questionId);
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   question.answerPool.push({ user: userId, answer, source });
   await question.save();
 
-  // 返回 populate 后的最新答案池
   const updated = await Question.findById(questionId)
     .populate('answerPool.user', 'username');
 
   return updated.answerPool;
 };
 
-// 获取答案池
 export const getAnswerPool = async (questionId) => {
   const question = await Question.findById(questionId)
     .populate('answerPool.user', 'username');
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   return question.answerPool;
 };
 
-// 获取用户统计
 export const getStats = async (userId) => {
   const records = await PracticeRecord.find({ userId }).populate('questionId', 'category');
 
@@ -421,7 +396,6 @@ export const getStats = async (userId) => {
   const correctAttempts = records.filter(r => r.isCorrect).length;
   const accuracy = totalAttempts > 0 ? Math.round((correctAttempts / totalAttempts) * 100) : 0;
 
-  // 分类统计
   const categoryMap = {};
   for (const record of records) {
     if (!record.questionId) continue;
@@ -443,12 +417,11 @@ export const getStats = async (userId) => {
   return { totalAttempts, correctAttempts, accuracy, categoryStats };
 };
 
-// 生成分享图片
 export const share = async (questionId) => {
   const question = await Question.findById(questionId);
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   const escapeSvg = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -472,12 +445,11 @@ export const share = async (questionId) => {
   return sharp(Buffer.from(svg)).png().toBuffer();
 };
 
-// 提交反馈
 export const feedback = async (questionId, userId, type, content) => {
   const question = await Question.findById(questionId);
 
   if (!question) {
-    throw Object.assign(new Error('题目不存在'), { status: 404 });
+    throw notFound('题目不存在');
   }
 
   const feedbackRecord = new Feedback({

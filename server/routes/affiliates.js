@@ -7,27 +7,29 @@ import {
   createAffiliate,
   updateAffiliate,
   deleteAffiliate,
-  importAffiliates
+  importAffiliates,
+  likeAffiliate,
+  incrementAffiliateViews,
+  getAffiliateCategories,
+  reorderAffiliates,
 } from '../controllers/affiliates.js';
 
 const router = Router();
 
-// GET /api/affiliates - 获取 AFF 列表（公开）
+// Public
 router.get('/', getAffiliates);
-
-// GET /api/affiliates/:id - 获取 AFF 详情（公开）
+router.get('/categories', getAffiliateCategories);
 router.get('/:id', getAffiliateById);
 
-// POST /api/affiliates - 创建 AFF（管理员）
+// Authenticated
+router.post('/:id/like', auth, likeAffiliate);
+router.post('/:id/view', auth, incrementAffiliateViews);
+
+// Admin
 router.post('/', auth, requireRole('admin'), createAffiliate);
-
-// POST /api/affiliates/import - 批量导入（管理员）
 router.post('/import', auth, requireRole('admin'), upload.single('import'), importAffiliates);
-
-// PUT /api/affiliates/:id - 更新 AFF（管理员）
+router.post('/reorder', auth, requireRole('admin'), reorderAffiliates);
 router.put('/:id', auth, requireRole('admin'), updateAffiliate);
-
-// DELETE /api/affiliates/:id - 删除 AFF（管理员）
 router.delete('/:id', auth, requireRole('admin'), deleteAffiliate);
 
 export default router;

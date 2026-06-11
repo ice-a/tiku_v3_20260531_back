@@ -1,6 +1,7 @@
 import Question from '../models/Question.js';
 import Navigation from '../models/Navigation.js';
 import Affiliate from '../models/Affiliate.js';
+import { notFound } from '../utils/HttpError.js';
 
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -151,9 +152,7 @@ export async function getQuestionById(id, options = {}) {
     .lean();
 
   if (!question) {
-    const error = new Error('题目不存在');
-    error.status = 404;
-    throw error;
+    throw notFound('题目不存在');
   }
 
   await Question.updateOne({ _id: id }, { $inc: { 'stats.views': 1 } });
